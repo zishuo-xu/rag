@@ -134,6 +134,13 @@ cp .env.example .env
 - [当前项目架构说明.md](/Users/xuzishuo/ai-work/rag/当前项目架构说明.md)：当前真实架构
 - [ROADMAP.md](/Users/xuzishuo/ai-work/rag/ROADMAP.md)：后续开发路线
 
+## 仓库协作
+
+- [CONTRIBUTING.md](/Users/xuzishuo/ai-work/rag/CONTRIBUTING.md)
+- [LICENSE](/Users/xuzishuo/ai-work/rag/LICENSE)
+- `.github/ISSUE_TEMPLATE`
+- `.github/PULL_REQUEST_TEMPLATE.md`
+
 ## 下一步
 
 当前最值得继续做的是：
