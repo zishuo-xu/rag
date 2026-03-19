@@ -17,6 +17,8 @@ from app.db.models.document_chunk import EMBEDDING_DIMENSION
 def main() -> None:
     with engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        conn.execute(text("ALTER TABLE IF EXISTS document ADD COLUMN IF NOT EXISTS processing_stage VARCHAR(64)"))
+        conn.execute(text("ALTER TABLE IF EXISTS document ADD COLUMN IF NOT EXISTS processing_message TEXT"))
         conn.execute(text("ALTER TABLE IF EXISTS document_chunk ADD COLUMN IF NOT EXISTS embedding_json JSON"))
         conn.execute(
             text(

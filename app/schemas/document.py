@@ -8,6 +8,9 @@ class DocumentListItem(BaseModel):
     file_name: str
     file_type: str
     status: str
+    processing_stage: str | None = None
+    processing_message: str | None = None
+    error_message: str | None = None
     chunk_count: int = 0
     created_time: datetime | None = None
 

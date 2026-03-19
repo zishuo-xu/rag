@@ -48,6 +48,7 @@
 - 文档列表、详情、删除、重新处理
 - 原始文件保存在 `storage/uploads`
 - 上传与重处理默认走后台异步处理，状态流转为 `QUEUED -> PROCESSING -> SUCCESS / FAILED`
+- 文档列表可查看当前处理阶段与进度说明，失败后可直接重新处理
 
 检索侧：
 - Query Rewrite

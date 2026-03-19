@@ -52,6 +52,11 @@ class DocumentService:
                 file_path=str(stored_path),
                 status="QUEUED",
             )
+            self.db.add(document)
+            document.processing_stage = "queued"
+            document.processing_message = "文档已入队，等待后台处理。"
+            self.db.commit()
+            self.db.refresh(document)
             DocumentTaskService.enqueue(document.id)
             return document
         except Exception:
@@ -71,6 +76,8 @@ class DocumentService:
 
         self.db.add(document)
         document.status = "QUEUED"
+        document.processing_stage = "queued"
+        document.processing_message = "文档已重新入队，等待后台处理。"
         document.error_message = None
         document.chunk_count = 0
         self.db.commit()

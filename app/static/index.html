@@ -1044,8 +1044,13 @@
                         <span>ID: ${doc.id}</span>
                         <span>类型: ${doc.file_type}</span>
                         <span>状态: ${doc.status}</span>
+                        <span>阶段: ${doc.processing_stage || "-"}</span>
                         <span>Chunks: ${doc.chunk_count ?? 0}</span>
                         <span>创建时间: ${formatTime(doc.created_time)}</span>
+                      </div>
+                      <div class="doc-meta" style="margin-top: 6px">
+                        <span>进度说明: ${escapeHtml(doc.processing_message || "暂无")}</span>
+                        ${doc.error_message ? `<span style="color: var(--danger)">错误: ${escapeHtml(doc.error_message)}</span>` : ""}
                       </div>
                     </div>
                   </div>
