@@ -136,6 +136,10 @@ RERANK_BASE_URL=https://dashscope.aliyuncs.com/compatible-api/v1/reranks
 .venv/bin/python scripts/eval_rag.py --disable-llm --review-output evals/reports/review_sheet.csv
 ```
 
+当前人工复核建议：
+- 单模型复核表会新增 `relevance_score / hallucination_score / conciseness_score / citation_support_score`
+- 主线与阿里 rerank 的人工对比表见 [industry_manual_compare_main_vs_aliyun.csv](/Users/xuzishuo/ai-work/rag/evals/reports/industry_manual_compare_main_vs_aliyun.csv)
+
 ## 行业样本评测
 
 先重置当前知识库并写入行业样本：
