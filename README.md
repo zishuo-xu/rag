@@ -1,22 +1,81 @@
 # RAG Knowledge Base
 
-## Local run
+一个可本地运行的 RAG 知识库问答系统，当前已经具备：
 
-1. Create a virtual environment and install dependencies.
-2. Copy `.env.example` to `.env` and fill model keys if needed.
-3. Initialize the database:
+- 文档上传、解析、清洗、切分、向量化
+- `pgvector` 检索、关键词补充、rerank、去重合并
+- 外部 LLM 生成答案与引用展示
+- 问答历史、处理进度、LLM 输入输出回放
+- 单文档、多文档、行业样本评测
+
+## 当前架构
+
+- 应用：`FastAPI + 静态页面`
+- 数据库：`PostgreSQL + pgvector`
+- 缓存：`Redis`
+- Embedding：火山云 embedding
+- LLM：当前默认已验证 `deepseek-chat`
+
+详细架构见 [当前项目架构说明.md](/Users/xuzishuo/ai-work/rag/当前项目架构说明.md)。
+
+## 当前能力
+
+文档侧：
+- 上传 `txt / md / pdf / docx`
+- 文档列表、详情、删除、重新处理
+- 原始文件保存在 `storage/uploads`
+
+检索侧：
+- Query Rewrite
+- 向量检索 + 关键词检索
+- 本地规则型 rerank
+- 相邻 chunk 合并与重复证据去重
+- 支持只在选中文档内提问
+
+问答侧：
+- 外部 LLM 生成答案
+- fallback 检索式摘要
+- 引用编号与来源片段联动
+- LLM 输入/输出、回退原因持久化
+
+前端侧：
+- 首页直接可操作
+- 实时进度展示
+- 调试视图
+- 问答历史与单次回放
+
+## 本地运行
+
+1. 安装依赖
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+```
+
+2. 配置环境变量
+
+```bash
+cp .env.example .env
+```
+
+3. 初始化数据库
 
 ```bash
 .venv/bin/python scripts/init_db.py
 ```
 
-4. Start the app:
+4. 启动服务
 
 ```bash
-uvicorn app.main:app --reload
+.venv/bin/uvicorn app.main:app --reload --port 8011
 ```
 
-## Available endpoints
+5. 打开页面
+
+[http://127.0.0.1:8011](http://127.0.0.1:8011)
+
+## 核心接口
 
 - `GET /health`
 - `GET /health/deps`
@@ -27,68 +86,59 @@ uvicorn app.main:app --reload
 - `DELETE /api/documents/{id}`
 - `POST /api/qa/ask`
 - `GET /api/qa/history`
+- `GET /api/qa/history/{request_id}`
+- `GET /api/qa/progress/{request_id}`
 
-## Current capabilities
+## 评测
 
-- Document upload with local file persistence
-- Synchronous parsing for `txt`, `md`, `pdf`, `docx`
-- Basic text cleaning and chunk splitting
-- Chunk embedding generation with external provider or local fallback
-- Hybrid retrieval with vector similarity and keyword matching
-- Basic keyword retrieval QA over chunks
-- Optional OpenAI Responses API answer generation when `LLM_API_KEY` is configured
-- Document list, detail, and delete
-- Simple browser UI at `/`
-
-## Evaluation
-
-Run the lightweight regression suite:
-
-```bash
-.venv/bin/python scripts/eval_rag.py
-```
-
-Run retrieval-only evaluation without external LLM:
-
-```bash
-.venv/bin/python scripts/eval_rag.py --disable-llm
-```
-
-Write a JSON report:
+基础回归：
 
 ```bash
 .venv/bin/python scripts/eval_rag.py --disable-llm --output evals/reports/latest.json
 ```
 
-Write a manual review sheet:
+导出人工复核表：
 
 ```bash
 .venv/bin/python scripts/eval_rag.py --disable-llm --review-output evals/reports/review_sheet.csv
 ```
 
-Default cases live in `evals/qa_cases.jsonl`.
-Each case can carry `category`, `difficulty`, `must_hit_section_titles`, `golden_answer`, `manual_score`, and `manual_notes` fields.
-The script prints category-level metrics and can export a CSV sheet for human review.
+## 行业样本评测
 
-## Industry-style evaluation
-
-Reset the current knowledge-base documents and seed the curated industry corpus:
+先重置当前知识库并写入行业样本：
 
 ```bash
 .venv/bin/python scripts/reset_seed_eval_corpus.py --corpus-dir evals/industry_corpus
 ```
 
-Run the larger industry-style benchmark over the full corpus:
+再跑行业评测：
 
 ```bash
 .venv/bin/python scripts/eval_rag.py --cases evals/industry_cases.jsonl --disable-llm --output evals/reports/industry_eval_latest.json --review-output evals/reports/industry_review_sheet.csv
 ```
 
-This benchmark currently uses:
+当前行业基线：
+- `10` 份样本文档
+- `36` 条评测题
+- 支持 `Precision@4 / Recall@4 / MRR@4 / nDCG@4`
+- 支持 `answer token F1 / ROUGE-L F1`
 
-- `10` seeded sample documents in `evals/industry_corpus`
-- `36` evaluation cases in `evals/industry_cases.jsonl`
-- retrieval metrics such as `Precision@4`, `Recall@4`, `MRR@4`, `nDCG@4`
-- answer metrics such as `answer token F1` and `ROUGE-L F1`
+最新端到端抽样外部 LLM 结果：
+- [industry_eval_with_deepseek_chat_tiny_compressed.json](/Users/xuzishuo/ai-work/rag/evals/reports/industry_eval_with_deepseek_chat_tiny_compressed.json)
 
-The latest report is written to `evals/reports/industry_eval_latest.json`.
+## 目录
+
+- [app](/Users/xuzishuo/ai-work/rag/app)：应用代码
+- [scripts](/Users/xuzishuo/ai-work/rag/scripts)：初始化、评测、重置语料脚本
+- [evals](/Users/xuzishuo/ai-work/rag/evals)：评测题集、语料、报告
+- [当前项目架构说明.md](/Users/xuzishuo/ai-work/rag/当前项目架构说明.md)：当前真实架构
+- [ROADMAP.md](/Users/xuzishuo/ai-work/rag/ROADMAP.md)：后续开发路线
+
+## 下一步
+
+当前最值得继续做的是：
+
+- 简单题 / 复杂题路由，减少不必要的 LLM 调用
+- 上下文进一步压缩与答案模板优化
+- 外部 LLM 抽样评测自动化
+- 更高质量的 rerank 与引用组织
