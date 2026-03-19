@@ -213,7 +213,8 @@ class QAService:
             )
             reranked_hits = self.rerank_service.rerank(rewritten_question, candidates, limit=12)
             processed_hits = self.retrieval_postprocessor.postprocess(reranked_hits, limit=16)
-            top_hits = _select_answer_hits(rewritten_question, processed_hits, limit=4)
+            answer_hit_limit = 4 if self.llm_provider.enabled else 3
+            top_hits = _select_answer_hits(rewritten_question, processed_hits, limit=answer_hit_limit)
             self._set_progress(
                 request_id,
                 status="RUNNING",
@@ -506,19 +507,34 @@ def _order_citations_for_answer(question: str, citations: list[CitationItem]) ->
     ]
 
 
-def _select_answer_hits(question: str, hits: list[ProcessedHit], limit: int = 4) -> list[ProcessedHit]:
+def _select_answer_hits(question: str, hits: list[ProcessedHit], limit: int = 3) -> list[ProcessedHit]:
     query_tags = set(derive_semantic_tags(question))
     ordered = sorted(
         hits,
         key=lambda hit: _answer_hit_priority(hit, query_tags),
         reverse=True,
     )
+    selected: list[ProcessedHit] = []
+    seen_sections: set[str] = set()
+    for hit in ordered:
+        section_key = (hit.section_title or "").strip().lower()
+        if section_key and section_key in seen_sections:
+            continue
+        selected.append(hit)
+        if section_key:
+            seen_sections.add(section_key)
+        if len(selected) >= limit:
+            break
+
+    if selected:
+        return selected
     return ordered[:limit]
 
 
 def _answer_hit_priority(hit: ProcessedHit, query_tags: set[str]) -> tuple[float, int]:
     hit_tags = set(derive_semantic_tags(hit.content, hit.section_title))
     overlap = len(query_tags & hit_tags)
+    lexical_bonus = _question_match_bonus(hit.content, hit.section_title, query_tags)
     generic_penalty = 1 if hit.section_title and any(
         marker in hit.section_title for marker in ["结论", "展望", "建议", "风险提示", "股价走势"]
     ) else 0
@@ -528,12 +544,16 @@ def _answer_hit_priority(hit: ProcessedHit, query_tags: set[str]) -> tuple[float
     specificity_bonus = 1 if hit.section_title and any(
         marker in hit.section_title for marker in ["客户", "合作", "财务", "估值", "基本情况", "技术路线", "关注重点"]
     ) else 0
-    return (hit.score + overlap * 12 + specificity_bonus * 4 - generic_penalty * 8 - meta_penalty * 18, -hit.chunk_index)
+    return (
+        hit.score + overlap * 12 + lexical_bonus + specificity_bonus * 4 - generic_penalty * 8 - meta_penalty * 18,
+        -hit.chunk_index,
+    )
 
 
 def _citation_answer_priority(citation: CitationItem, query_tags: set[str]) -> tuple[float, int, int]:
     chunk_tags = set(derive_semantic_tags(citation.content, citation.section_title))
     overlap_score = len(query_tags & chunk_tags)
+    lexical_bonus = _question_match_bonus(citation.content, citation.section_title, query_tags)
     generic_penalty = 1 if citation.section_title and any(
         marker in citation.section_title for marker in ["结论", "展望", "建议", "风险提示", "股价走势"]
     ) else 0
@@ -546,6 +566,7 @@ def _citation_answer_priority(citation: CitationItem, query_tags: set[str]) -> t
     ) else 0
     return (
         overlap_score * 10
+        + lexical_bonus
         + specificity_bonus * 4
         - generic_penalty * 6
         - meta_penalty * 18
@@ -561,6 +582,24 @@ def _normalize_section_title(section_title: str | None) -> str | None:
         return None
     normalized = re.sub(r"\s+", " ", section_title).strip()
     return normalized or None
+
+
+def _question_match_bonus(content: str, section_title: str | None, query_tags: set[str]) -> float:
+    source = f"{section_title or ''} {content}"
+    bonus = 0.0
+    if "company_profile" in query_tags and any(marker in source for marker in ["上市", "股票代码", "基本情况"]):
+        bonus += 8.0
+    if "globalization" in query_tags and any(marker in source for marker in ["美国", "墨西哥", "摩洛哥", "欧洲", "海外"]):
+        bonus += 10.0
+    if "customer" in query_tags and any(marker in source for marker in ["客户", "合作", "供应链"]):
+        bonus += 8.0
+    if "finance" in query_tags and any(marker in source for marker in ["营收", "净利润", "财务", "毛利率", "现金流"]):
+        bonus += 8.0
+    if "valuation" in query_tags and any(marker in source for marker in ["估值", "市盈率", "目标价"]):
+        bonus += 8.0
+    if "smart_driving" in query_tags and any(marker in source for marker in ["智驾", "智能驾驶", "HSD", "XNGP", "NAD", "ANP"]):
+        bonus += 8.0
+    return bonus
 
 
 def _build_lead_sentence(question: str, citations: list[CitationItem], query_tags: set[str]) -> str:
