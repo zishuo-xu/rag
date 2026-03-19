@@ -18,6 +18,25 @@
 
 详细架构见 [当前项目架构说明.md](/Users/xuzishuo/ai-work/rag/当前项目架构说明.md)。
 
+## 当前默认主线
+
+当前验证效果最好的生成链路是：
+
+- `deepseek-chat`
+- 压缩上下文
+- 事实化提示词
+- 题型定向约束
+- 简洁句式收束
+
+当前 `11` 题端到端 LLM 样本回归结果见：
+- [industry_eval_with_deepseek_chat_sample_concise_format.json](/Users/xuzishuo/ai-work/rag/evals/reports/industry_eval_with_deepseek_chat_sample_concise_format.json)
+
+核心指标：
+- `golden_answer_recall = 61.75%`
+- `answer_token_f1 = 40.62%`
+- `ROUGE-L F1 = 73.98%`
+- `average_latency = 3641.7 ms`
+
 ## 当前能力
 
 文档侧：
@@ -126,6 +145,23 @@ cp .env.example .env
 最新端到端抽样外部 LLM 结果：
 - [industry_eval_with_deepseek_chat_tiny_compressed.json](/Users/xuzishuo/ai-work/rag/evals/reports/industry_eval_with_deepseek_chat_tiny_compressed.json)
 
+更贴近真实用户问法的 LLM 样本集：
+- [industry_cases_llm_realistic.jsonl](/Users/xuzishuo/ai-work/rag/evals/industry_cases_llm_realistic.jsonl)
+
+运行方式：
+
+```bash
+.venv/bin/python scripts/eval_rag.py --cases evals/industry_cases_llm_realistic.jsonl --output evals/reports/industry_eval_with_deepseek_chat_realistic.json --review-output evals/reports/industry_review_with_deepseek_chat_realistic.csv
+```
+
+当前这套默认主线在 `19` 题真实问法集上的结果：
+- `retrieval_hit_rate = 100%`
+- `section_hit_rate = 100%`
+- `golden_answer_recall = 52.64%`
+- `answer_token_f1 = 35.26%`
+- `ROUGE-L F1 = 68.02%`
+- `average_latency = 2876.2 ms`
+
 ## 目录
 
 - [app](/Users/xuzishuo/ai-work/rag/app)：应用代码
@@ -145,7 +181,7 @@ cp .env.example .env
 
 当前最值得继续做的是：
 
-- 简单题 / 复杂题路由，减少不必要的 LLM 调用
-- 上下文进一步压缩与答案模板优化
-- 外部 LLM 抽样评测自动化
+- 固化当前最佳主线，持续用更真实问法做回归
+- 引用数量 / 顺序自适应
 - 更高质量的 rerank 与引用组织
+- 人工评分与趋势对比
