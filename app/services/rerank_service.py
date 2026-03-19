@@ -3,6 +3,7 @@ from dataclasses import dataclass
 
 from app.db.models.document import Document
 from app.db.models.document_chunk import DocumentChunk
+from app.providers.rerank.aliyun_provider import AliyunRerankProvider
 from app.utils.semantic_tags import derive_semantic_tags
 
 
@@ -13,9 +14,13 @@ class RerankResult:
     rerank_score: float
     keyword_score: int
     vector_score: float
+    external_score: float = 0.0
 
 
 class RerankService:
+    def __init__(self) -> None:
+        self.external_provider = AliyunRerankProvider()
+
     def rerank(
         self,
         question: str,
@@ -60,19 +65,48 @@ class RerankService:
                     rerank_score=rerank_score,
                     keyword_score=keyword_score,
                     vector_score=vector_score,
+                    external_score=0.0,
                 )
             )
 
-        reranked.sort(
-            key=lambda item: (
-                item.rerank_score,
-                item.keyword_score,
-                item.vector_score,
-                -item.chunk.chunk_index,
-            ),
-            reverse=True,
-        )
+        reranked = self._apply_external_rerank(question, reranked)
+        reranked.sort(key=_result_sort_key, reverse=True)
         return reranked[:limit]
+
+    def _apply_external_rerank(self, question: str, reranked: list[RerankResult]) -> list[RerankResult]:
+        if not self.external_provider.enabled or not reranked:
+            return reranked
+
+        local_sorted = sorted(reranked, key=_result_sort_key, reverse=True)
+        candidate_limit = min(len(local_sorted), 12)
+        external_candidates = local_sorted[:candidate_limit]
+        documents = [_rerank_document_text(item) for item in external_candidates]
+
+        try:
+            external_results = self.external_provider.rerank(
+                query=question,
+                documents=documents,
+                top_n=candidate_limit,
+            )
+        except Exception:
+            return reranked
+
+        external_scores = {item.index: item.score for item in external_results}
+        updated: list[RerankResult] = []
+        for index, item in enumerate(external_candidates):
+            score = external_scores.get(index, 0.0)
+            updated.append(
+                RerankResult(
+                    chunk=item.chunk,
+                    document=item.document,
+                    rerank_score=item.rerank_score + score * 20.0,
+                    keyword_score=item.keyword_score,
+                    vector_score=item.vector_score,
+                    external_score=score,
+                )
+            )
+
+        return updated + local_sorted[candidate_limit:]
 
 
 def _extract_terms(text: str) -> list[str]:
@@ -154,3 +188,19 @@ def _semantic_tag_bonus(query_tags: set[str], chunk_tags: set[str]) -> float:
     if {"globalization", "morocco_factory"} <= overlap:
         bonus += 2.0
     return bonus
+
+
+def _rerank_document_text(item: RerankResult) -> str:
+    title = item.chunk.section_title or "未标注"
+    chunk_text = item.chunk.chunk_text or ""
+    return f"章节: {title}\n内容: {chunk_text}"
+
+
+def _result_sort_key(item: RerankResult) -> tuple[float, float, int, float, int]:
+    return (
+        item.external_score,
+        item.rerank_score,
+        item.keyword_score,
+        item.vector_score,
+        -item.chunk.chunk_index,
+    )

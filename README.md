@@ -37,6 +37,10 @@
 - `ROUGE-L F1 = 73.98%`
 - `average_latency = 3641.7 ms`
 
+可选外部 rerank：
+- 阿里百炼 `qwen3-rerank`
+- 接入方式为“本地规则型粗排 + 阿里 rerank 精排前 12 个候选 + 失败自动回退”
+
 ## 当前能力
 
 文档侧：
@@ -48,6 +52,7 @@
 - Query Rewrite
 - 向量检索 + 关键词检索
 - 本地规则型 rerank
+- 可选阿里百炼 `qwen3-rerank` 外部 rerank
 - 相邻 chunk 合并与重复证据去重
 - 支持只在选中文档内提问
 
@@ -76,6 +81,15 @@ python3 -m venv .venv
 
 ```bash
 cp .env.example .env
+```
+
+如需启用阿里百炼 rerank，可补充：
+
+```env
+RERANK_PROVIDER=aliyun
+RERANK_API_KEY=your_dashscope_key
+RERANK_MODEL=qwen3-rerank
+RERANK_BASE_URL=https://dashscope.aliyuncs.com/compatible-api/v1/reranks
 ```
 
 3. 初始化数据库
@@ -161,6 +175,15 @@ cp .env.example .env
 - `answer_token_f1 = 35.26%`
 - `ROUGE-L F1 = 68.02%`
 - `average_latency = 2876.2 ms`
+
+阿里百炼 rerank 接入后的 `19` 题真实问法回归结果：
+- [industry_eval_with_aliyun_rerank_realistic.json](/Users/xuzishuo/ai-work/rag/evals/reports/industry_eval_with_aliyun_rerank_realistic.json)
+- `document_purity = 94.74%`
+- `doc_precision@4 = 89.47%`
+- `golden_answer_recall = 54.90%`
+- `answer_token_f1 = 33.70%`
+- `ROUGE-L F1 = 68.59%`
+- `average_latency = 3117.6 ms`
 
 ## 目录
 

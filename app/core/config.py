@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     llm_api_key: str = Field(default="", alias="LLM_API_KEY")
     llm_model: str = Field(default="", alias="LLM_MODEL")
     llm_base_url: str = Field(default="https://api.openai.com/v1", alias="LLM_BASE_URL")
+    rerank_provider: str = Field(default="local", alias="RERANK_PROVIDER")
+    rerank_api_key: str = Field(default="", alias="RERANK_API_KEY")
+    rerank_model: str = Field(default="", alias="RERANK_MODEL")
+    rerank_base_url: str = Field(
+        default="https://dashscope.aliyuncs.com/compatible-api/v1/reranks",
+        alias="RERANK_BASE_URL",
+    )
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
