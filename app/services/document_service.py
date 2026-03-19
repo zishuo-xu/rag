@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.db.models.document import Document
 from app.db.repositories.document_repository import DocumentRepository
-from app.services.ingest_service import IngestService
+from app.services.document_task_service import DocumentTaskService
 
 
 ALLOWED_EXTENSIONS = {".txt", ".md", ".pdf", ".docx"}
@@ -50,9 +50,10 @@ class DocumentService:
                 file_name=upload.filename or stored_name,
                 file_type=suffix.lstrip("."),
                 file_path=str(stored_path),
-                status="PROCESSING",
+                status="QUEUED",
             )
-            return IngestService(self.db).process_document(document)
+            DocumentTaskService.enqueue(document.id)
+            return document
         except Exception:
             stored_path.unlink(missing_ok=True)
             raise
@@ -65,4 +66,14 @@ class DocumentService:
 
     def reprocess_document(self, document_id: int) -> Document:
         document = self.get_document(document_id)
-        return IngestService(self.db).process_document(document)
+        if document.status in {"QUEUED", "PROCESSING"}:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="document is already being processed")
+
+        self.db.add(document)
+        document.status = "QUEUED"
+        document.error_message = None
+        document.chunk_count = 0
+        self.db.commit()
+        self.db.refresh(document)
+        DocumentTaskService.enqueue(document.id)
+        return document

@@ -672,6 +672,7 @@
       const qaResultEl = document.getElementById("qaResult");
       const historyListEl = document.getElementById("historyList");
       const historyDetailEl = document.getElementById("historyDetail");
+      let documentStatusTimer = null;
       let qaProgressTimer = null;
       let progressDebugExpanded = false;
       let activeHistoryRequestId = "";
@@ -1066,9 +1067,25 @@
           const response = await fetch("/api/documents");
           const data = await response.json();
           renderDocuments(data);
+          scheduleDocumentPollingIfNeeded(data);
         } catch (error) {
           docListEl.innerHTML = '<div class="empty">文档列表加载失败。</div>';
         }
+      }
+
+      function stopDocumentPolling() {
+        if (!documentStatusTimer) return;
+        window.clearTimeout(documentStatusTimer);
+        documentStatusTimer = null;
+      }
+
+      function scheduleDocumentPollingIfNeeded(documents) {
+        stopDocumentPolling();
+        const hasPending = (documents || []).some(
+          (item) => item.status === "QUEUED" || item.status === "PROCESSING"
+        );
+        if (!hasPending) return;
+        documentStatusTimer = window.setTimeout(() => loadDocuments(), 1200);
       }
 
       async function uploadDocument() {
@@ -1095,7 +1112,7 @@
             throw new Error(data.detail || "上传失败");
           }
 
-          setMessage(`上传成功，文档 ID: ${data.id}，状态: ${data.status}`, "success");
+          setMessage(`上传成功，文档 ID: ${data.id}，已进入后台处理（${data.status}）。`, "success");
           fileInput.value = "";
           await loadDocuments();
         } catch (error) {
@@ -1206,7 +1223,7 @@
           if (!response.ok) {
             throw new Error(data.detail || "重新处理失败");
           }
-          setMessage(`文档 ${id} 重新处理完成，状态: ${data.status}`, "success");
+          setMessage(`文档 ${id} 已重新入队，状态: ${data.status}`, "success");
           await loadDocuments();
         } catch (error) {
           setMessage(error.message || "重新处理失败", "error");
