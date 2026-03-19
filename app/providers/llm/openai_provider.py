@@ -31,11 +31,11 @@ class OpenAILLMProvider:
             )
         self.prefers_chat_completions = "api.deepseek.com" in self.base_url
 
-    def generate_answer(self, *, question: str, context_blocks: list[str]) -> LLMResult:
+    def generate_answer(self, *, question: str, context_blocks: list[str], answer_directive: str | None = None) -> LLMResult:
         if not self.enabled or not self.client:
             raise RuntimeError("llm is not configured")
 
-        prompt = self.build_prompt(question=question, context_blocks=context_blocks)
+        prompt = self.build_prompt(question=question, context_blocks=context_blocks, answer_directive=answer_directive)
         responses_error: str | None = None
 
         if not self.prefers_chat_completions:
@@ -82,8 +82,9 @@ class OpenAILLMProvider:
             fallback_reason=responses_error if not self.prefers_chat_completions else None,
         )
 
-    def build_prompt(self, *, question: str, context_blocks: list[str]) -> str:
+    def build_prompt(self, *, question: str, context_blocks: list[str], answer_directive: str | None = None) -> str:
         context = "\n\n".join(context_blocks)
+        directive = f"\n\n本题补充要求：{answer_directive}" if answer_directive else ""
         return (
             "你是一个企业知识库问答助手。"
             "你必须严格根据提供的参考资料回答。"
@@ -102,5 +103,6 @@ class OpenAILLMProvider:
             "回答中的关键结论后尽量追加引用编号，例如 [1] 或 [1][2]。"
             "不要编造不存在的引用编号。"
             f"\n\n用户问题：{question}"
+            f"{directive}"
             f"\n\n参考资料：\n{context}"
         )

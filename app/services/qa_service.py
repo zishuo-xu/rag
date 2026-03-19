@@ -409,9 +409,14 @@ class QAService:
             )
             for citation in citations
         ]
+        answer_directive = _build_answer_directive(question, citations)
         if self.llm_provider.enabled:
             try:
-                result = self.llm_provider.generate_answer(question=question, context_blocks=context_blocks)
+                result = self.llm_provider.generate_answer(
+                    question=question,
+                    context_blocks=context_blocks,
+                    answer_directive=answer_directive,
+                )
                 if result and result.answer:
                     return (
                         result.answer,
@@ -446,8 +451,13 @@ class QAService:
             )
             for citation in citations
         ]
+        answer_directive = _build_answer_directive(question, citations)
         if self.llm_provider.enabled:
-            return self.llm_provider.build_prompt(question=question, context_blocks=context_blocks)
+            return self.llm_provider.build_prompt(
+                question=question,
+                context_blocks=context_blocks,
+                answer_directive=answer_directive,
+            )
         return self._build_fallback_prompt(question, context_blocks)
 
     def _build_fallback_prompt(self, question: str, context_blocks: list[str]) -> str:
@@ -492,6 +502,24 @@ def _build_answer(question: str, citations: list[CitationItem]) -> str:
         summary = _summarize_citation(citation, question)
         evidence_lines.append(f"- [{citation.citation_id}] {summary}")
     return f"{lead}\n\n依据要点：\n" + "\n".join(evidence_lines)
+
+
+def _build_answer_directive(question: str, citations: list[CitationItem]) -> str | None:
+    query_tags = set(derive_semantic_tags(question))
+    hints: list[str] = []
+    if any(marker in question for marker in ["为什么", "为何", "原因"]):
+        hints.append("请直接写出支撑该判断的具体原因或构成要素，不要只给抽象结论。")
+    if any(marker in question for marker in ["强调什么", "包括什么", "哪些", "特点"]):
+        hints.append("若参考资料中存在并列要点，请尽量完整列出 2 到 4 个关键点。")
+    if "globalization" in query_tags:
+        hints.append("若资料涉及多个国家和地区、牌照、研发或国际合作伙伴，请优先显式写出这些全球化依据。")
+    if "finance" in query_tags or "valuation" in query_tags:
+        hints.append("若资料中出现财务或估值术语，请优先保留原始术语和数字表达。")
+    if "smart_driving" in query_tags:
+        hints.append("若资料中存在产品名、平台名或技术名，请优先保留这些专有名词。")
+    if not hints:
+        return None
+    return " ".join(hints)
 
 
 def _order_citations_for_answer(question: str, citations: list[CitationItem]) -> list[CitationItem]:
