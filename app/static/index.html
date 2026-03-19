@@ -1,0 +1,1242 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RAG 文档管理台</title>
+    <style>
+      :root {
+        --bg: #f4efe7;
+        --panel: #fffaf4;
+        --ink: #1f2937;
+        --muted: #6b7280;
+        --line: #dccfbb;
+        --brand: #b45309;
+        --brand-dark: #92400e;
+        --danger: #b91c1c;
+        --success: #166534;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+        color: var(--ink);
+        background:
+          radial-gradient(circle at top left, rgba(180, 83, 9, 0.18), transparent 28%),
+          linear-gradient(135deg, #f7f2ea 0%, #efe4d2 100%);
+        min-height: 100vh;
+      }
+
+      .shell {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 32px 20px 60px;
+      }
+
+      .hero {
+        display: grid;
+        grid-template-columns: 1.2fr 0.8fr;
+        gap: 18px;
+        margin-bottom: 24px;
+      }
+
+      .card {
+        background: rgba(255, 250, 244, 0.9);
+        border: 1px solid rgba(220, 207, 187, 0.9);
+        border-radius: 22px;
+        box-shadow: 0 18px 40px rgba(64, 37, 8, 0.08);
+        backdrop-filter: blur(10px);
+      }
+
+      .hero-main {
+        padding: 28px;
+      }
+
+      .hero-side {
+        padding: 24px;
+      }
+
+      h1 {
+        margin: 0 0 12px;
+        font-size: 40px;
+        line-height: 1.05;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.7;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        background: #f6e7d3;
+        color: var(--brand-dark);
+        font-size: 13px;
+        margin-bottom: 16px;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: 360px 1fr;
+        gap: 18px;
+      }
+
+      .panel {
+        padding: 22px;
+      }
+
+      .section-title {
+        margin: 0 0 6px;
+        font-size: 20px;
+      }
+
+      .section-subtitle {
+        margin-bottom: 18px;
+        font-size: 14px;
+      }
+
+      .field {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+
+      input[type="file"] {
+        padding: 12px;
+        border: 1px dashed var(--line);
+        border-radius: 14px;
+        background: white;
+      }
+
+      .actions {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      button {
+        border: 0;
+        border-radius: 14px;
+        padding: 12px 16px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.15s ease, opacity 0.15s ease;
+      }
+
+      button:hover {
+        transform: translateY(-1px);
+      }
+
+      button:disabled {
+        opacity: 0.55;
+        cursor: not-allowed;
+      }
+
+      .primary {
+        background: var(--brand);
+        color: white;
+      }
+
+      .secondary {
+        background: white;
+        color: var(--ink);
+        border: 1px solid var(--line);
+      }
+
+      .danger {
+        background: #fee2e2;
+        color: var(--danger);
+      }
+
+      .status-grid {
+        display: grid;
+        gap: 12px;
+      }
+
+      .status-item {
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: white;
+        border: 1px solid var(--line);
+      }
+
+      .status-item strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 13px;
+        color: var(--muted);
+      }
+
+      .status-pill {
+        display: inline-block;
+        padding: 6px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .ok {
+        background: #dcfce7;
+        color: var(--success);
+      }
+
+      .error {
+        background: #fee2e2;
+        color: var(--danger);
+      }
+
+      .list-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 18px;
+      }
+
+      .doc-list {
+        display: grid;
+        gap: 14px;
+      }
+
+      .doc-item {
+        padding: 18px;
+        border-radius: 18px;
+        border: 1px solid var(--line);
+        background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(251,246,239,0.96));
+      }
+
+      .doc-top {
+        display: flex;
+        justify-content: space-between;
+        gap: 16px;
+        align-items: start;
+      }
+
+      .doc-name {
+        font-weight: 700;
+        font-size: 17px;
+        margin-bottom: 8px;
+        word-break: break-all;
+      }
+
+      .doc-meta {
+        color: var(--muted);
+        font-size: 13px;
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .doc-actions {
+        display: flex;
+        gap: 8px;
+      }
+
+      .doc-select {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .doc-checkbox {
+        width: 18px;
+        height: 18px;
+        accent-color: #b45309;
+        margin-top: 2px;
+        flex: 0 0 auto;
+      }
+
+      .message {
+        margin-top: 14px;
+        min-height: 24px;
+        font-size: 14px;
+      }
+
+      .empty {
+        padding: 28px;
+        border: 1px dashed var(--line);
+        border-radius: 18px;
+        color: var(--muted);
+        text-align: center;
+        background: rgba(255, 255, 255, 0.6);
+      }
+
+      .footer-note {
+        margin-top: 20px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .answer-card,
+      .citation-card {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.82);
+      }
+
+      .answer-card {
+        padding: 18px;
+      }
+
+      .answer-text {
+        margin-top: 10px;
+        white-space: pre-wrap;
+        line-height: 1.85;
+      }
+
+      .answer-meta {
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .citation-list {
+        margin-top: 14px;
+        display: grid;
+        gap: 12px;
+      }
+
+      .citation-card {
+        padding: 16px;
+      }
+
+      .citation-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: start;
+      }
+
+      .citation-tag {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 36px;
+        height: 36px;
+        border-radius: 999px;
+        background: #f6e7d3;
+        color: var(--brand-dark);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .citation-source {
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      .citation-meta {
+        color: var(--muted);
+        font-size: 13px;
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-top: 4px;
+      }
+
+      .citation-content {
+        margin-top: 10px;
+        line-height: 1.7;
+        white-space: pre-wrap;
+      }
+
+      .answer-ref {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 24px;
+        height: 24px;
+        padding: 0 6px;
+        margin: 0 2px;
+        border-radius: 999px;
+        background: #f6e7d3;
+        color: var(--brand-dark);
+        font-size: 12px;
+        font-weight: 700;
+        text-decoration: none;
+        vertical-align: middle;
+      }
+
+      .progress-card {
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: rgba(255, 255, 255, 0.82);
+      }
+
+      .progress-bar {
+        width: 100%;
+        height: 10px;
+        margin-top: 12px;
+        border-radius: 999px;
+        background: #eadfce;
+        overflow: hidden;
+      }
+
+      .progress-value {
+        height: 100%;
+        background: linear-gradient(90deg, #d97706, #b45309);
+        transition: width 0.25s ease;
+      }
+
+      .progress-steps {
+        margin-top: 14px;
+        display: grid;
+        gap: 10px;
+      }
+
+      .progress-step {
+        display: flex;
+        gap: 12px;
+        align-items: start;
+        padding: 10px 12px;
+        border-radius: 14px;
+        background: rgba(247, 242, 234, 0.9);
+      }
+
+      .progress-step.current {
+        border: 1px solid #d97706;
+        background: rgba(246, 231, 211, 0.9);
+      }
+
+      .progress-step.done {
+        opacity: 0.78;
+      }
+
+      .progress-dot {
+        width: 12px;
+        height: 12px;
+        border-radius: 999px;
+        margin-top: 4px;
+        background: #d1d5db;
+        flex: 0 0 auto;
+      }
+
+      .progress-step.current .progress-dot,
+      .progress-step.done .progress-dot {
+        background: #b45309;
+      }
+
+      .progress-debug {
+        margin-top: 16px;
+        border-top: 1px solid var(--line);
+        padding-top: 14px;
+      }
+
+      .progress-debug summary {
+        cursor: pointer;
+        font-weight: 700;
+        color: var(--brand-dark);
+      }
+
+      .debug-step {
+        margin-top: 12px;
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: rgba(247, 242, 234, 0.9);
+      }
+
+      .debug-title {
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+
+      .debug-block {
+        margin-top: 8px;
+      }
+
+      .debug-label {
+        font-size: 12px;
+        color: var(--muted);
+        margin-bottom: 4px;
+      }
+
+      .debug-pre {
+        margin: 0;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: #fff;
+        border: 1px solid var(--line);
+        white-space: pre-wrap;
+        word-break: break-word;
+        font-size: 12px;
+        line-height: 1.6;
+      }
+
+      .history-grid {
+        display: grid;
+        grid-template-columns: 360px 1fr;
+        gap: 18px;
+        margin-top: 18px;
+      }
+
+      .history-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .history-item {
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: rgba(255, 255, 255, 0.78);
+        cursor: pointer;
+      }
+
+      .history-item.active {
+        border-color: #d97706;
+        background: rgba(246, 231, 211, 0.95);
+      }
+
+      .history-question {
+        font-weight: 700;
+        margin-bottom: 8px;
+      }
+
+      .history-detail {
+        min-height: 180px;
+      }
+
+      .llm-trace {
+        margin-top: 14px;
+        display: grid;
+        gap: 12px;
+      }
+
+      .scope-bar {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+        margin-bottom: 12px;
+        padding: 12px 14px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.7);
+      }
+
+      .scope-meta {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      @media (max-width: 900px) {
+        .hero,
+        .grid,
+        .history-grid {
+          grid-template-columns: 1fr;
+        }
+
+        h1 {
+          font-size: 32px;
+        }
+
+        .doc-top {
+          flex-direction: column;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="shell">
+      <section class="hero">
+        <div class="card hero-main">
+          <div class="badge">本地应用 + 云端 PostgreSQL / Redis</div>
+          <h1>RAG 文档管理台</h1>
+          <p>
+            这是一版最快可操作的前端页面。现在你可以直接上传文档、查看文档列表、删除文档，并检查后端和依赖服务是否正常。
+          </p>
+        </div>
+        <div class="card hero-side">
+          <h2 class="section-title">服务状态</h2>
+          <p class="section-subtitle">页面加载时自动检测，也可以手动刷新。</p>
+          <div class="status-grid">
+            <div class="status-item">
+              <strong>应用健康</strong>
+              <span id="appStatus" class="status-pill">检测中</span>
+            </div>
+            <div class="status-item">
+              <strong>数据库 / Redis</strong>
+              <span id="depsStatus" class="status-pill">检测中</span>
+            </div>
+          </div>
+          <div class="actions" style="margin-top: 14px">
+            <button class="secondary" id="refreshHealthBtn">刷新状态</button>
+          </div>
+        </div>
+      </section>
+
+      <section class="grid">
+        <div class="card panel">
+          <h2 class="section-title">上传文档</h2>
+          <p class="section-subtitle">支持 `txt`、`md`、`pdf`、`docx`。</p>
+
+          <div class="field">
+            <label for="fileInput">选择文件</label>
+            <input id="fileInput" type="file" />
+          </div>
+
+          <div class="actions">
+            <button class="primary" id="uploadBtn">上传文档</button>
+            <button class="secondary" id="reloadBtn">刷新列表</button>
+          </div>
+
+          <div id="message" class="message"></div>
+          <div class="footer-note">
+            当前上传只是入库基础链路，后续会接解析、切分和向量化。
+          </div>
+        </div>
+
+        <div class="card panel">
+          <div class="list-head">
+            <div>
+              <h2 class="section-title">文档列表</h2>
+              <p class="section-subtitle">已上传文档会显示在这里。</p>
+            </div>
+            <button class="secondary" id="refreshListBtn">刷新</button>
+          </div>
+          <div id="docList" class="doc-list"></div>
+        </div>
+      </section>
+
+      <section class="card panel" style="margin-top: 18px">
+        <h2 class="section-title">知识问答</h2>
+        <p class="section-subtitle">当前是基础检索版，会从已切分的 chunks 里找最相关的片段并给出摘要。</p>
+        <div class="scope-bar">
+          <div>
+            <div style="font-weight: 700;">提问范围</div>
+            <div id="scopeLabel" class="scope-meta">当前提问范围：全部可用文档</div>
+          </div>
+          <div class="actions">
+            <button class="secondary" id="selectAllDocsBtn">全选文档</button>
+            <button class="secondary" id="clearDocSelectionBtn">清空选择</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="questionInput">输入问题</label>
+          <input id="questionInput" type="text" placeholder="例如：这份文档的核心结论是什么？" style="padding: 12px 14px; border: 1px solid var(--line); border-radius: 14px; background: white;" />
+        </div>
+        <div class="actions">
+          <button class="primary" id="askBtn">开始提问</button>
+        </div>
+        <div id="qaResult" style="margin-top: 18px"></div>
+      </section>
+
+      <section class="history-grid">
+        <div class="card panel">
+          <div class="list-head">
+            <div>
+              <h2 class="section-title">问答历史</h2>
+              <p class="section-subtitle">最近 50 次问答，可点开回看单次结果。</p>
+            </div>
+            <button class="secondary" id="refreshHistoryBtn">刷新历史</button>
+          </div>
+          <div id="historyList" class="history-list"></div>
+        </div>
+
+        <div class="card panel">
+          <h2 class="section-title">单次回放</h2>
+          <p class="section-subtitle">查看当次问题、答案、引用和模型信息。</p>
+          <div id="historyDetail" class="history-detail empty">选择左侧一条问答历史后，这里会显示详细结果。</div>
+        </div>
+      </section>
+    </div>
+
+    <script>
+      const fileInput = document.getElementById("fileInput");
+      const uploadBtn = document.getElementById("uploadBtn");
+      const reloadBtn = document.getElementById("reloadBtn");
+      const refreshListBtn = document.getElementById("refreshListBtn");
+      const refreshHealthBtn = document.getElementById("refreshHealthBtn");
+      const messageEl = document.getElementById("message");
+      const docListEl = document.getElementById("docList");
+      const appStatusEl = document.getElementById("appStatus");
+      const depsStatusEl = document.getElementById("depsStatus");
+      const questionInput = document.getElementById("questionInput");
+      const askBtn = document.getElementById("askBtn");
+      const selectAllDocsBtn = document.getElementById("selectAllDocsBtn");
+      const clearDocSelectionBtn = document.getElementById("clearDocSelectionBtn");
+      const scopeLabelEl = document.getElementById("scopeLabel");
+      const refreshHistoryBtn = document.getElementById("refreshHistoryBtn");
+      const qaResultEl = document.getElementById("qaResult");
+      const historyListEl = document.getElementById("historyList");
+      const historyDetailEl = document.getElementById("historyDetail");
+      let qaProgressTimer = null;
+      let progressDebugExpanded = false;
+      let activeHistoryRequestId = "";
+      let selectedDocumentIds = new Set();
+      let latestDocuments = [];
+      const qaStages = [
+        { key: "received", label: "接收问题" },
+        { key: "embedding", label: "生成问题向量" },
+        { key: "retrieving", label: "检索相关片段" },
+        { key: "reranking", label: "重排候选结果" },
+        { key: "generating", label: "生成最终答案" },
+        { key: "persisting", label: "写入问答记录" },
+        { key: "completed", label: "返回最终结果" },
+      ];
+
+      function setMessage(text, type = "info") {
+        const colors = {
+          info: "var(--ink)",
+          success: "var(--success)",
+          error: "var(--danger)",
+        };
+        messageEl.textContent = text;
+        messageEl.style.color = colors[type] || colors.info;
+      }
+
+      function setStatus(el, text, ok) {
+        el.textContent = text;
+        el.className = `status-pill ${ok ? "ok" : "error"}`;
+      }
+
+      function formatTime(value) {
+        if (!value) return "-";
+        return new Date(value).toLocaleString("zh-CN");
+      }
+
+      function getSelectedDocumentIds() {
+        return Array.from(selectedDocumentIds);
+      }
+
+      function syncScopeLabel() {
+        const selectedIds = getSelectedDocumentIds();
+        const selectableDocs = latestDocuments.filter((item) => item.status === "SUCCESS");
+        if (!selectedIds.length) {
+          scopeLabelEl.textContent = "当前提问范围：全部可用文档";
+          return;
+        }
+        const selectedNames = selectableDocs
+          .filter((item) => selectedDocumentIds.has(item.id))
+          .map((item) => item.file_name);
+        scopeLabelEl.textContent = `当前提问范围：已选 ${selectedIds.length} 份文档${selectedNames.length ? `（${selectedNames.slice(0, 2).join("、")}${selectedNames.length > 2 ? " 等" : ""}）` : ""}`;
+      }
+
+      function toggleDocumentSelection(documentId, checked) {
+        if (checked) {
+          selectedDocumentIds.add(documentId);
+        } else {
+          selectedDocumentIds.delete(documentId);
+        }
+        syncScopeLabel();
+      }
+
+      function escapeHtml(value) {
+        return String(value || "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll('"', "&quot;")
+          .replaceAll("'", "&#39;");
+      }
+
+      function renderAnswerWithRefs(answer) {
+        return escapeHtml(answer).replace(/\[(\d+)\]/g, '<a class="answer-ref" href="#citation-$1">[$1]</a>');
+      }
+
+      function renderSummary(value) {
+        if (!value || (typeof value === "object" && !Array.isArray(value) && Object.keys(value).length === 0)) {
+          return '<div class="debug-pre">暂无</div>';
+        }
+
+        if (Array.isArray(value)) {
+          return `
+            <div class="debug-pre">
+              ${value
+                .map((item, index) => `${index + 1}. ${escapeHtml(JSON.stringify(item, null, 2))}`)
+                .join("\n\n")}
+            </div>
+          `;
+        }
+
+        if (typeof value === "object") {
+          return `
+            <div class="debug-pre">
+              ${Object.entries(value)
+                .map(([key, itemValue]) => `${escapeHtml(key)}: ${escapeHtml(typeof itemValue === "string" ? itemValue : JSON.stringify(itemValue, null, 2))}`)
+                .join("\n\n")}
+            </div>
+          `;
+        }
+
+        return `<div class="debug-pre">${escapeHtml(String(value))}</div>`;
+      }
+
+      function generateRequestId() {
+        if (window.crypto && typeof window.crypto.randomUUID === "function") {
+          return `req_${window.crypto.randomUUID().replaceAll("-", "").slice(0, 12)}`;
+        }
+        return `req_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+      }
+
+      function renderProgress(data) {
+        const currentIndex = qaStages.findIndex((item) => item.key === data.stage);
+        const stepsHtml = qaStages
+          .map((item, index) => {
+            let stateClass = "";
+            if (currentIndex >= 0 && index < currentIndex) stateClass = "done";
+            if (item.key === data.stage) stateClass = "current";
+            if (data.status === "COMPLETED" && index <= currentIndex) stateClass = "done";
+            if (data.status === "FAILED" && index <= currentIndex) stateClass = index === currentIndex ? "current" : "done";
+            return `
+              <div class="progress-step ${stateClass}">
+                <span class="progress-dot"></span>
+                <div>
+                  <div style="font-weight: 700;">${item.label}</div>
+                  <div style="color: var(--muted); font-size: 13px;">
+                    ${item.key === data.stage ? escapeHtml(data.message) : ""}
+                  </div>
+                </div>
+              </div>
+            `;
+          })
+          .join("");
+        const debugHtml = (data.steps || [])
+          .map(
+            (step) => `
+              <div class="debug-step">
+                <div class="debug-title">${escapeHtml(step.stage)} · ${escapeHtml(step.message || "")}</div>
+                <div class="debug-block">
+                  <div class="debug-label">输入摘要</div>
+                  ${renderSummary(step.input_summary)}
+                </div>
+                <div class="debug-block">
+                  <div class="debug-label">输出摘要</div>
+                  ${renderSummary(step.output_summary)}
+                </div>
+              </div>
+            `
+          )
+          .join("");
+
+        qaResultEl.innerHTML = `
+          <div class="progress-card">
+            <div class="doc-name">问答处理中</div>
+            <div class="doc-meta">
+              <span>Request ID: ${data.request_id}</span>
+              <span>阶段: ${escapeHtml(data.stage)}</span>
+              <span>进度: ${data.progress_percent}%</span>
+            </div>
+            <div class="answer-meta">${escapeHtml(data.message)}${data.error_message ? ` 错误: ${escapeHtml(data.error_message)}` : ""}</div>
+            <div class="progress-bar">
+              <div class="progress-value" style="width: ${Math.max(0, Math.min(100, data.progress_percent))}%"></div>
+            </div>
+            <div class="progress-steps">${stepsHtml}</div>
+            <details class="progress-debug" ${progressDebugExpanded ? "open" : ""}>
+              <summary>查看本次处理详情</summary>
+              ${debugHtml || '<div class="empty" style="margin-top: 12px;">当前阶段还没有可展示的输入/输出摘要。</div>'}
+            </details>
+          </div>
+        `;
+
+        const detailsEl = qaResultEl.querySelector(".progress-debug");
+        if (detailsEl) {
+          detailsEl.addEventListener("toggle", () => {
+            progressDebugExpanded = detailsEl.open;
+          });
+        }
+      }
+
+      function buildAnswerDetailHtml(data, options = {}) {
+        const title = options.title || "回答";
+        const metaPrefix = options.metaPrefix || "";
+        const citations = (data.citations || [])
+          .map(
+            (item) => `
+              <article id="${options.anchorPrefix || "citation"}-${item.citation_id}" class="citation-card">
+                <div class="citation-head">
+                  <span class="citation-tag">[${item.citation_id}]</span>
+                  <div style="flex: 1;">
+                    <div class="citation-source">${escapeHtml(item.file_name)}</div>
+                    <div class="citation-meta">
+                      <span>文档 ID: ${item.document_id}</span>
+                      <span>Chunk: ${item.chunk_index}</span>
+                      ${item.chunk_span ? `<span>范围: ${escapeHtml(item.chunk_span)}</span>` : ""}
+                      <span>Score: ${item.score}</span>
+                      <span>章节: ${escapeHtml(item.section_title || "未标注")}</span>
+                    </div>
+                  </div>
+                </div>
+                <div class="citation-content">${escapeHtml(item.content)}</div>
+              </article>
+            `
+          )
+          .join("");
+
+        return `
+          <div class="answer-card">
+            <div class="doc-name">${escapeHtml(title)}</div>
+            <div class="doc-meta">
+              ${metaPrefix ? `<span>${escapeHtml(metaPrefix)}</span>` : ""}
+              <span>Request ID: ${data.request_id}</span>
+              <span>耗时: ${data.elapsed_time_ms ?? data.response_time_ms ?? "-"} ms</span>
+              <span>模型: ${escapeHtml(data.model_name || "-")}</span>
+              <span>LLM状态: ${escapeHtml(data.llm_provider_status || "unknown")}</span>
+              ${data.status ? `<span>状态: ${escapeHtml(data.status)}</span>` : ""}
+              ${data.created_time ? `<span>时间: ${escapeHtml(formatTime(data.created_time))}</span>` : ""}
+            </div>
+            <div class="answer-meta" style="margin-top: 12px;">问题：${escapeHtml(data.question)}</div>
+            ${
+              data.llm_fallback_reason
+                ? `<div class="answer-meta">回退/补充说明：${escapeHtml(data.llm_fallback_reason)}</div>`
+                : ""
+            }
+            <div class="answer-text">${renderAnswerWithRefs(data.answer || "")}</div>
+            <div class="answer-meta">点击答案里的引用编号，可以跳到下方对应资料片段。</div>
+          </div>
+          <div class="llm-trace">
+            <details class="progress-debug">
+              <summary>查看本次 LLM 输入</summary>
+              ${renderSummary(data.llm_input_text || "当前未记录 LLM 输入。")}
+            </details>
+            <details class="progress-debug">
+              <summary>查看本次 LLM 输出</summary>
+              ${renderSummary(data.llm_output_text || "当前未记录 LLM 输出。")}
+            </details>
+          </div>
+          <div class="citation-list">
+            ${citations || '<div class="empty">这次没有返回可展示的引用片段。</div>'}
+          </div>
+        `;
+      }
+
+      function renderHistoryList(items) {
+        if (!items.length) {
+          historyListEl.innerHTML = '<div class="empty">还没有问答历史，先提一个问题试试看。</div>';
+          return;
+        }
+
+        historyListEl.innerHTML = items
+          .map(
+            (item) => `
+              <article class="history-item ${activeHistoryRequestId === item.request_id ? "active" : ""}" onclick="loadHistoryDetail('${item.request_id}')">
+                <div class="history-question">${escapeHtml(item.question)}</div>
+                <div class="doc-meta">
+                  <span>${escapeHtml(item.request_id)}</span>
+                  <span>${escapeHtml(item.model_name)}</span>
+                  <span>${item.response_time_ms} ms</span>
+                  <span>${escapeHtml(item.status)}</span>
+                  <span>${escapeHtml(formatTime(item.created_time))}</span>
+                </div>
+              </article>
+            `
+          )
+          .join("");
+      }
+
+      async function loadHistory() {
+        try {
+          const response = await fetch("/api/qa/history");
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.detail || "历史加载失败");
+          }
+          renderHistoryList(data);
+        } catch (error) {
+          historyListEl.innerHTML = '<div class="empty">问答历史加载失败。</div>';
+        }
+      }
+
+      async function loadHistoryDetail(requestId) {
+        activeHistoryRequestId = requestId;
+        await loadHistory();
+        historyDetailEl.innerHTML = '<div class="empty">正在加载这次问答的详细结果...</div>';
+        try {
+          const response = await fetch(`/api/qa/history/${requestId}`);
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.detail || "历史详情加载失败");
+          }
+          historyDetailEl.className = "history-detail";
+          historyDetailEl.innerHTML = buildAnswerDetailHtml(data, { title: "回放详情", metaPrefix: "历史记录" });
+        } catch (error) {
+          historyDetailEl.className = "history-detail empty";
+          historyDetailEl.textContent = error.message || "历史详情加载失败";
+        }
+      }
+
+      async function pollQAProgress(requestId) {
+        try {
+          const response = await fetch(`/api/qa/progress/${requestId}`);
+          if (!response.ok) {
+            return;
+          }
+          const data = await response.json();
+          renderProgress(data);
+          if (data.status === "COMPLETED" || data.status === "FAILED") {
+            stopQAProgressPolling();
+          }
+        } catch (error) {
+        }
+      }
+
+      function stopQAProgressPolling() {
+        if (qaProgressTimer) {
+          window.clearInterval(qaProgressTimer);
+          qaProgressTimer = null;
+        }
+      }
+
+      async function loadHealth() {
+        try {
+          const [healthRes, depsRes] = await Promise.all([
+            fetch("/health"),
+            fetch("/health/deps"),
+          ]);
+
+          const healthData = await healthRes.json();
+          const depsData = await depsRes.json();
+
+          setStatus(appStatusEl, healthData.status === "ok" ? "运行正常" : "异常", healthData.status === "ok");
+
+          const depsOk = depsData.database === "ok" && depsData.redis === "ok";
+          setStatus(
+            depsStatusEl,
+            depsOk ? "数据库 / Redis 正常" : `DB:${depsData.database} Redis:${depsData.redis}`,
+            depsOk
+          );
+        } catch (error) {
+          setStatus(appStatusEl, "检测失败", false);
+          setStatus(depsStatusEl, "检测失败", false);
+        }
+      }
+
+      function renderDocuments(documents) {
+        latestDocuments = documents;
+        const validIds = new Set(documents.map((item) => item.id));
+        selectedDocumentIds = new Set(getSelectedDocumentIds().filter((id) => validIds.has(id)));
+
+        if (!documents.length) {
+          docListEl.innerHTML = '<div class="empty">还没有文档，先上传一个试试看。</div>';
+          syncScopeLabel();
+          return;
+        }
+
+        docListEl.innerHTML = documents
+          .map(
+            (doc) => `
+              <article class="doc-item">
+                <div class="doc-top">
+                  <div class="doc-select">
+                    <input
+                      class="doc-checkbox"
+                      type="checkbox"
+                      ${doc.status === "SUCCESS" ? "" : "disabled"}
+                      ${selectedDocumentIds.has(doc.id) ? "checked" : ""}
+                      onchange="toggleDocumentSelection(${doc.id}, this.checked)"
+                    />
+                    <div>
+                      <div class="doc-name">${doc.file_name}</div>
+                      <div class="doc-meta">
+                        <span>ID: ${doc.id}</span>
+                        <span>类型: ${doc.file_type}</span>
+                        <span>状态: ${doc.status}</span>
+                        <span>Chunks: ${doc.chunk_count ?? 0}</span>
+                        <span>创建时间: ${formatTime(doc.created_time)}</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="doc-actions">
+                    <button class="secondary" onclick="viewDocument(${doc.id})">详情</button>
+                    <button class="secondary" onclick="reprocessDocument(${doc.id})">重新处理</button>
+                    <button class="danger" onclick="deleteDocument(${doc.id})">删除</button>
+                  </div>
+                </div>
+              </article>
+            `
+          )
+          .join("");
+        syncScopeLabel();
+      }
+
+      async function loadDocuments() {
+        try {
+          const response = await fetch("/api/documents");
+          const data = await response.json();
+          renderDocuments(data);
+        } catch (error) {
+          docListEl.innerHTML = '<div class="empty">文档列表加载失败。</div>';
+        }
+      }
+
+      async function uploadDocument() {
+        const file = fileInput.files[0];
+        if (!file) {
+          setMessage("请先选择一个文件。", "error");
+          return;
+        }
+
+        uploadBtn.disabled = true;
+        setMessage("正在上传文档...", "info");
+
+        try {
+          const formData = new FormData();
+          formData.append("upload_file", file);
+
+          const response = await fetch("/api/documents/upload", {
+            method: "POST",
+            body: formData,
+          });
+
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.detail || "上传失败");
+          }
+
+          setMessage(`上传成功，文档 ID: ${data.id}，状态: ${data.status}`, "success");
+          fileInput.value = "";
+          await loadDocuments();
+        } catch (error) {
+          setMessage(error.message || "上传失败", "error");
+        } finally {
+          uploadBtn.disabled = false;
+        }
+      }
+
+      async function viewDocument(id) {
+        try {
+          const response = await fetch(`/api/documents/${id}`);
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.detail || "查询失败");
+          }
+
+          setMessage(
+            `文档详情: ${data.file_name} | 状态 ${data.status} | 路径 ${data.file_path}`,
+            "info"
+          );
+        } catch (error) {
+          setMessage(error.message || "获取详情失败", "error");
+        }
+      }
+
+      async function deleteDocument(id) {
+        const confirmed = window.confirm(`确认删除文档 ${id} 吗？`);
+        if (!confirmed) return;
+
+        try {
+          const response = await fetch(`/api/documents/${id}`, { method: "DELETE" });
+          if (!response.ok) {
+            const data = await response.json();
+            throw new Error(data.detail || "删除失败");
+          }
+
+          setMessage(`文档 ${id} 已删除。`, "success");
+          await loadDocuments();
+        } catch (error) {
+          setMessage(error.message || "删除失败", "error");
+        }
+      }
+
+      function renderQAResult(data) {
+        qaResultEl.innerHTML = buildAnswerDetailHtml(data, { title: "回答" });
+      }
+
+      async function askQuestion() {
+        const question = questionInput.value.trim();
+        const documentIds = getSelectedDocumentIds();
+        if (!question) {
+          setMessage("请先输入问题。", "error");
+          return;
+        }
+
+        const requestId = generateRequestId();
+        askBtn.disabled = true;
+        qaResultEl.innerHTML = "";
+        progressDebugExpanded = false;
+        stopQAProgressPolling();
+        renderProgress({
+          request_id: requestId,
+          status: "RUNNING",
+          stage: "received",
+          message: "已发送请求，正在等待服务端接收。",
+          progress_percent: 1,
+          error_message: null,
+        });
+        qaProgressTimer = window.setInterval(() => pollQAProgress(requestId), 800);
+        pollQAProgress(requestId);
+        setMessage("正在处理问题...", "info");
+
+        try {
+          const response = await fetch("/api/qa/ask", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              question,
+              request_id: requestId,
+              document_ids: documentIds.length ? documentIds : null,
+            }),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.detail || "提问失败");
+          }
+          stopQAProgressPolling();
+          progressDebugExpanded = false;
+          renderQAResult(data);
+          activeHistoryRequestId = data.request_id;
+          await loadHistory();
+          await loadHistoryDetail(data.request_id);
+          setMessage("检索完成。", "success");
+        } catch (error) {
+          stopQAProgressPolling();
+          setMessage(error.message || "提问失败", "error");
+        } finally {
+          askBtn.disabled = false;
+        }
+      }
+
+      async function reprocessDocument(id) {
+        try {
+          setMessage(`正在重新处理文档 ${id}...`, "info");
+          const response = await fetch(`/api/documents/${id}/reprocess`, { method: "POST" });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.detail || "重新处理失败");
+          }
+          setMessage(`文档 ${id} 重新处理完成，状态: ${data.status}`, "success");
+          await loadDocuments();
+        } catch (error) {
+          setMessage(error.message || "重新处理失败", "error");
+        }
+      }
+
+      window.viewDocument = viewDocument;
+      window.deleteDocument = deleteDocument;
+      window.reprocessDocument = reprocessDocument;
+      window.loadHistoryDetail = loadHistoryDetail;
+      window.toggleDocumentSelection = toggleDocumentSelection;
+
+      uploadBtn.addEventListener("click", uploadDocument);
+      reloadBtn.addEventListener("click", loadDocuments);
+      refreshListBtn.addEventListener("click", loadDocuments);
+      refreshHealthBtn.addEventListener("click", loadHealth);
+      selectAllDocsBtn.addEventListener("click", () => {
+        selectedDocumentIds = new Set(latestDocuments.filter((item) => item.status === "SUCCESS").map((item) => item.id));
+        renderDocuments(latestDocuments);
+      });
+      clearDocSelectionBtn.addEventListener("click", () => {
+        selectedDocumentIds = new Set();
+        renderDocuments(latestDocuments);
+      });
+      refreshHistoryBtn.addEventListener("click", loadHistory);
+      askBtn.addEventListener("click", askQuestion);
+
+      loadHealth();
+      loadDocuments();
+      loadHistory();
+    </script>
+  </body>
+</html>

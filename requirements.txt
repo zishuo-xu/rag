@@ -1,0 +1,11 @@
+fastapi==0.116.1
+uvicorn[standard]==0.35.0
+sqlalchemy==2.0.43
+psycopg[binary]==3.2.13
+redis==6.4.0
+pydantic-settings==2.10.1
+python-multipart==0.0.20
+pypdf==5.9.0
+python-docx==1.2.0
+openai==1.107.2
+pgvector==0.4.1
