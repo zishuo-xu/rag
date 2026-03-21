@@ -1,7 +1,9 @@
 import logging
+import math
 import time
 from datetime import datetime, timezone
 
+from app.core.config import get_settings
 from app.db.models.document import Document
 from app.db.models.document_chunk import DocumentChunk
 from app.db.session import SessionLocal
@@ -17,6 +19,7 @@ logger = logging.getLogger(__name__)
 
 class IngestService:
     def __init__(self, db=None) -> None:
+        self.settings = get_settings()
         self.embedding_provider = EmbeddingProvider()
 
     def process_document(self, document: Document) -> Document:
@@ -77,16 +80,12 @@ class IngestService:
                 raise ValueError("no chunks produced")
             stage_durations["splitting"] = self._duration_ms(stage_started_at)
 
-            stage_started_at = time.perf_counter()
-            self._update_processing(
-                document_id,
-                stage="embedding",
-                message="正在生成向量表示。",
+            embeddings = self._embed_in_batches(
+                document_id=document_id,
+                chunks=chunks,
                 started_time=started_time,
                 stage_durations=stage_durations,
             )
-            embeddings = self.embedding_provider.embed_documents([item.text for item in chunks])
-            stage_durations["embedding"] = self._duration_ms(stage_started_at)
 
             stage_started_at = time.perf_counter()
             self._update_processing(
@@ -248,3 +247,33 @@ class IngestService:
 
     def _duration_ms(self, started_at: float) -> int:
         return int((time.perf_counter() - started_at) * 1000)
+
+    def _embed_in_batches(
+        self,
+        *,
+        document_id: int,
+        chunks,
+        started_time: datetime,
+        stage_durations: dict,
+    ) -> list[list[float]]:
+        batch_size = max(1, int(self.settings.embedding_batch_size))
+        total_chunks = len(chunks)
+        total_batches = max(1, math.ceil(total_chunks / batch_size))
+        embeddings: list[list[float]] = []
+        stage_started_at = time.perf_counter()
+
+        for batch_index in range(total_batches):
+            start = batch_index * batch_size
+            end = min(start + batch_size, total_chunks)
+            self._update_processing(
+                document_id,
+                stage="embedding",
+                message=f"正在生成向量表示（第 {batch_index + 1}/{total_batches} 批，chunks {start + 1}-{end}）。",
+                started_time=started_time,
+                stage_durations=stage_durations,
+            )
+            batch_embeddings = self.embedding_provider.embed_documents([item.text for item in chunks[start:end]])
+            embeddings.extend(batch_embeddings)
+
+        stage_durations["embedding"] = self._duration_ms(stage_started_at)
+        return embeddings

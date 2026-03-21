@@ -96,6 +96,12 @@ RERANK_MODEL=qwen3-rerank
 RERANK_BASE_URL=https://dashscope.aliyuncs.com/compatible-api/v1/reranks
 ```
 
+可选的大文件向量化批次配置：
+
+```env
+EMBEDDING_BATCH_SIZE=100
+```
+
 3. 初始化数据库
 
 ```bash

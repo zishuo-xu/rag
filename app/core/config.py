@@ -17,6 +17,7 @@ class Settings(BaseSettings):
 
     upload_dir: Path = Field(default=Path("storage/uploads"), alias="UPLOAD_DIR")
     max_file_size_mb: int = Field(default=20, alias="MAX_FILE_SIZE_MB")
+    embedding_batch_size: int = Field(default=100, alias="EMBEDDING_BATCH_SIZE")
 
     embedding_api_key: str = Field(default="", alias="EMBEDDING_API_KEY")
     embedding_model: str = Field(default="", alias="EMBEDDING_MODEL")
