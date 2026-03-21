@@ -10,6 +10,7 @@ settings = get_settings()
 redis_client = Redis.from_url(settings.redis_url, decode_responses=True)
 QA_PROGRESS_TTL_SECONDS = 60 * 30
 DOCUMENT_TASK_QUEUE = "document:tasks"
+DOCUMENT_WORKER_HEARTBEAT_KEY = "document:worker:heartbeat"
 
 
 def ping_redis() -> bool:
@@ -76,4 +77,21 @@ def blocking_pop_document_task(timeout: int = 5) -> dict | None:
     if not item:
         return None
     _, payload = item
+    return json.loads(payload)
+
+
+def set_document_worker_heartbeat(*, status: str, document_id: int | None = None, stage: str | None = None) -> None:
+    payload = {
+        "status": status,
+        "document_id": document_id,
+        "stage": stage,
+        "updated_at": datetime.now(timezone.utc).isoformat(),
+    }
+    redis_client.set(DOCUMENT_WORKER_HEARTBEAT_KEY, json.dumps(payload, ensure_ascii=True))
+
+
+def get_document_worker_heartbeat() -> dict | None:
+    payload = redis_client.get(DOCUMENT_WORKER_HEARTBEAT_KEY)
+    if not payload:
+        return None
     return json.loads(payload)

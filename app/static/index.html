@@ -637,6 +637,10 @@
               <strong>数据库 / Redis</strong>
               <span id="depsStatus" class="status-pill">检测中</span>
             </div>
+            <div class="status-item">
+              <strong>文档 Worker</strong>
+              <span id="workerStatus" class="status-pill">检测中</span>
+            </div>
           </div>
           <div class="actions" style="margin-top: 14px">
             <button class="secondary" id="refreshHealthBtn">刷新状态</button>
@@ -742,6 +746,7 @@
       const docListEl = document.getElementById("docList");
       const appStatusEl = document.getElementById("appStatus");
       const depsStatusEl = document.getElementById("depsStatus");
+      const workerStatusEl = document.getElementById("workerStatus");
       const questionInput = document.getElementById("questionInput");
       const askBtn = document.getElementById("askBtn");
       const selectAllDocsBtn = document.getElementById("selectAllDocsBtn");
@@ -1115,9 +1120,20 @@
             depsOk ? "数据库 / Redis 正常" : `DB:${depsData.database} Redis:${depsData.redis}`,
             depsOk
           );
+          const workerOk = depsData.document_worker === "idle" || depsData.document_worker === "processing";
+          setStatus(
+            workerStatusEl,
+            workerOk
+              ? depsData.document_worker === "processing"
+                ? "处理中"
+                : "在线空闲"
+              : depsData.document_worker || "离线",
+            workerOk
+          );
         } catch (error) {
           setStatus(appStatusEl, "检测失败", false);
           setStatus(depsStatusEl, "检测失败", false);
+          setStatus(workerStatusEl, "检测失败", false);
         }
       }
 
