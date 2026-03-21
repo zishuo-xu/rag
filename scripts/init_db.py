@@ -50,6 +50,13 @@ def main() -> None:
         )
         conn.execute(
             text(
+                "CREATE INDEX IF NOT EXISTS idx_document_chunk_fulltext_gin "
+                "ON document_chunk USING gin "
+                "(to_tsvector('simple', coalesce(section_title, '') || ' ' || chunk_text))"
+            )
+        )
+        conn.execute(
+            text(
                 "CREATE INDEX IF NOT EXISTS idx_document_chunk_embedding_halfvec_hnsw "
                 f"ON document_chunk USING hnsw ((CAST(embedding_vector AS halfvec({EMBEDDING_DIMENSION}))) "
                 "halfvec_cosine_ops)"

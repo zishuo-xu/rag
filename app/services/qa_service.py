@@ -158,17 +158,42 @@ class QAService:
                 enabled=track_progress,
             )
             vector_rows = []
+            fulltext_rows = []
             vector_retrieval_mode = "pgvector"
             if len(query_embedding) == EMBEDDING_DIMENSION:
                 vector_rows = self.repo.list_similar_chunks(query_embedding, top_k=30, document_ids=document_ids)
             else:
                 vector_retrieval_mode = "keyword_only_due_to_embedding_dim_mismatch"
-            candidates: list[tuple[DocumentChunk, Document, int, float]] = []
+            fulltext_rows = self.repo.list_fulltext_chunks(rewritten_question, top_k=20, document_ids=document_ids)
+            candidates_by_chunk_id: dict[int, dict] = {}
             for chunk, document, distance in vector_rows:
                 keyword_score = _score_text(tokens, chunk.chunk_text)
                 vector_score = max(0.0, 1.0 - float(distance))
                 if keyword_score > 0 or vector_score > 0:
-                    candidates.append((chunk, document, keyword_score, vector_score))
+                    candidates_by_chunk_id[chunk.id] = {
+                        "chunk": chunk,
+                        "document": document,
+                        "keyword_score": keyword_score,
+                        "vector_score": vector_score,
+                    }
+
+            for chunk, document, rank in fulltext_rows:
+                keyword_score = max(_score_text(tokens, chunk.chunk_text), _fulltext_rank_to_keyword_score(float(rank)))
+                existing = candidates_by_chunk_id.get(chunk.id)
+                if existing:
+                    existing["keyword_score"] = max(existing["keyword_score"], keyword_score)
+                    continue
+                candidates_by_chunk_id[chunk.id] = {
+                    "chunk": chunk,
+                    "document": document,
+                    "keyword_score": keyword_score,
+                    "vector_score": 0.0,
+                }
+
+            candidates = [
+                (item["chunk"], item["document"], item["keyword_score"], item["vector_score"])
+                for item in candidates_by_chunk_id.values()
+            ]
 
             if not candidates:
                 chunk_rows = self.repo.list_searchable_chunks(document_ids)
@@ -194,10 +219,12 @@ class QAService:
                 },
                 output_summary={
                     "vector_hit_count": len(vector_rows),
+                    "fulltext_hit_count": len(fulltext_rows),
                     "candidate_count": len(candidates),
                     "candidate_preview": _candidate_preview(candidates),
                     "focus_documents": focus_summary,
                     "vector_retrieval_mode": vector_retrieval_mode,
+                    "retrieval_strategy": "vector_plus_fulltext",
                 },
                 enabled=track_progress,
             )
@@ -489,6 +516,10 @@ def _score_text(tokens: list[str], text: str) -> int:
         if token in lowered:
             score += min(lowered.count(token), 3)
     return score
+
+
+def _fulltext_rank_to_keyword_score(rank: float) -> int:
+    return max(1, min(8, int(round(rank * 20))))
 
 
 def _build_answer(question: str, citations: list[CitationItem]) -> str:

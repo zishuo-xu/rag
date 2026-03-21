@@ -55,6 +55,33 @@ class QARepository:
             stmt = stmt.where(Document.id.in_(document_ids))
         return list(self.db.execute(stmt).all())
 
+    def list_fulltext_chunks(
+        self,
+        query_text: str,
+        *,
+        top_k: int = 20,
+        document_ids: list[int] | None = None,
+    ) -> list[tuple[DocumentChunk, Document, float]]:
+        normalized_query = " ".join(part.strip() for part in query_text.split() if part.strip())
+        if not normalized_query:
+            return []
+
+        searchable_text = func.concat(func.coalesce(DocumentChunk.section_title, ""), " ", DocumentChunk.chunk_text)
+        vector = func.to_tsvector("simple", searchable_text)
+        ts_query = func.websearch_to_tsquery("simple", normalized_query)
+        rank = func.ts_rank_cd(vector, ts_query)
+        stmt = (
+            select(DocumentChunk, Document, rank.label("rank"))
+            .join(Document, Document.id == DocumentChunk.document_id)
+            .where(Document.status == "SUCCESS")
+            .where(rank > 0)
+            .order_by(rank.desc(), DocumentChunk.chunk_index.asc())
+            .limit(top_k)
+        )
+        if document_ids:
+            stmt = stmt.where(Document.id.in_(document_ids))
+        return list(self.db.execute(stmt).all())
+
     def create_record(
         self,
         *,
