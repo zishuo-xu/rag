@@ -3,11 +3,13 @@ import re
 
 def clean_text(text: str) -> str:
     normalized = text.replace("\r\n", "\n").replace("\r", "\n")
+    normalized = re.sub(r"(\w)-\n(\w)", r"\1\2", normalized)
     normalized = re.sub(r"\[([^\]]+)\]\((https?://[^)]+)\)", r"\1", normalized)
     normalized = re.sub(r"https?://\S+", "", normalized)
     normalized = re.sub(r"\*\*([^*]+)\*\*", r"\1", normalized)
     normalized = re.sub(r"\\\[(\d+)\]", r"[\1]", normalized)
     normalized = re.sub(r"[（(]\s*\d+\s*[)）]", "", normalized)
+    normalized = re.sub(r"(?m)^\s*(?:第?\s*\d+\s*页|page\s*\d+|\d+)\s*$", "", normalized, flags=re.IGNORECASE)
     normalized = re.sub(r"[ \t]+", " ", normalized)
 
     paragraphs = [part.strip() for part in re.split(r"\n{2,}", normalized) if part.strip()]
@@ -28,6 +30,8 @@ def clean_text(text: str) -> str:
 
 def _is_reference_paragraph(text: str) -> bool:
     compact = text.strip()
+    if compact.startswith("## Page "):
+        return False
     if re.match(r"^\[?\d+\]?\s+", compact):
         return True
     if re.match(r"^\\?\[\d+\]\s+", compact):
