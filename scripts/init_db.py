@@ -19,6 +19,10 @@ def main() -> None:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         conn.execute(text("ALTER TABLE IF EXISTS document ADD COLUMN IF NOT EXISTS processing_stage VARCHAR(64)"))
         conn.execute(text("ALTER TABLE IF EXISTS document ADD COLUMN IF NOT EXISTS processing_message TEXT"))
+        conn.execute(text("ALTER TABLE IF EXISTS document ADD COLUMN IF NOT EXISTS processing_started_time TIMESTAMPTZ"))
+        conn.execute(text("ALTER TABLE IF EXISTS document ADD COLUMN IF NOT EXISTS processing_finished_time TIMESTAMPTZ"))
+        conn.execute(text("ALTER TABLE IF EXISTS document ADD COLUMN IF NOT EXISTS processing_duration_ms INTEGER"))
+        conn.execute(text("ALTER TABLE IF EXISTS document ADD COLUMN IF NOT EXISTS stage_durations_json JSON"))
         conn.execute(text("ALTER TABLE IF EXISTS document_chunk ADD COLUMN IF NOT EXISTS embedding_json JSON"))
         conn.execute(
             text(

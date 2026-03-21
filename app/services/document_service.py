@@ -78,6 +78,10 @@ class DocumentService:
         document.status = "QUEUED"
         document.processing_stage = "queued"
         document.processing_message = "文档已重新入队，等待后台处理。"
+        document.processing_started_time = None
+        document.processing_finished_time = None
+        document.processing_duration_ms = None
+        document.stage_durations_json = None
         document.error_message = None
         document.chunk_count = 0
         self.db.commit()

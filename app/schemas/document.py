@@ -10,6 +10,10 @@ class DocumentListItem(BaseModel):
     status: str
     processing_stage: str | None = None
     processing_message: str | None = None
+    processing_started_time: datetime | None = None
+    processing_finished_time: datetime | None = None
+    processing_duration_ms: int | None = None
+    stage_durations_json: dict | None = None
     error_message: str | None = None
     chunk_count: int = 0
     created_time: datetime | None = None

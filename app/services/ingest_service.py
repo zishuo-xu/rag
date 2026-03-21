@@ -1,5 +1,6 @@
 import logging
 import time
+from datetime import datetime, timezone
 
 from app.db.models.document import Document
 from app.db.models.document_chunk import DocumentChunk
@@ -22,32 +23,99 @@ class IngestService:
         document_id = document.id
         file_path = document.file_path
         file_type = document.file_type
+        started_time = datetime.now(timezone.utc)
+        stage_durations: dict[str, int] = {}
+        overall_started_at = time.perf_counter()
         try:
-            self._update_processing(document_id, status="PROCESSING", stage="preparing", message="正在准备处理文档。")
+            stage_started_at = time.perf_counter()
+            self._update_processing(
+                document_id,
+                status="PROCESSING",
+                stage="preparing",
+                message="正在准备处理文档。",
+                started_time=started_time,
+                stage_durations=stage_durations,
+                reset_metrics=True,
+            )
             self.repo_clear_chunks(document_id)
+            stage_durations["preparing"] = self._duration_ms(stage_started_at)
 
-            self._update_processing(document_id, stage="parsing", message="正在解析原始文件。")
+            stage_started_at = time.perf_counter()
+            self._update_processing(
+                document_id,
+                stage="parsing",
+                message="正在解析原始文件。",
+                started_time=started_time,
+                stage_durations=stage_durations,
+            )
             raw_text, metadata = parse_file(file_path, file_type)
+            stage_durations["parsing"] = self._duration_ms(stage_started_at)
 
-            self._update_processing(document_id, stage="cleaning", message="正在清洗文本内容。")
+            stage_started_at = time.perf_counter()
+            self._update_processing(
+                document_id,
+                stage="cleaning",
+                message="正在清洗文本内容。",
+                started_time=started_time,
+                stage_durations=stage_durations,
+            )
             cleaned = clean_text(raw_text)
             if not cleaned:
                 raise ValueError("parsed content is empty")
+            stage_durations["cleaning"] = self._duration_ms(stage_started_at)
 
-            self._update_processing(document_id, stage="splitting", message="正在切分文本片段。")
+            stage_started_at = time.perf_counter()
+            self._update_processing(
+                document_id,
+                stage="splitting",
+                message="正在切分文本片段。",
+                started_time=started_time,
+                stage_durations=stage_durations,
+            )
             chunks = split_text_with_metadata(cleaned)
             if not chunks:
                 raise ValueError("no chunks produced")
+            stage_durations["splitting"] = self._duration_ms(stage_started_at)
 
-            self._update_processing(document_id, stage="embedding", message="正在生成向量表示。")
+            stage_started_at = time.perf_counter()
+            self._update_processing(
+                document_id,
+                stage="embedding",
+                message="正在生成向量表示。",
+                started_time=started_time,
+                stage_durations=stage_durations,
+            )
             embeddings = self.embedding_provider.embed_documents([item.text for item in chunks])
+            stage_durations["embedding"] = self._duration_ms(stage_started_at)
 
-            self._update_processing(document_id, stage="persisting", message="正在写入文本块和向量。")
+            stage_started_at = time.perf_counter()
+            self._update_processing(
+                document_id,
+                stage="persisting",
+                message="正在写入文本块和向量。",
+                started_time=started_time,
+                stage_durations=stage_durations,
+            )
             self._persist_chunks(document_id, chunks, embeddings, metadata)
-            self._mark_success(document_id, len(chunks))
+            stage_durations["persisting"] = self._duration_ms(stage_started_at)
+            self._mark_success(
+                document_id,
+                len(chunks),
+                started_time=started_time,
+                finished_time=datetime.now(timezone.utc),
+                total_duration_ms=self._duration_ms(overall_started_at),
+                stage_durations=stage_durations,
+            )
             return self._get_document(document_id)
         except Exception as exc:
-            self._mark_failed(document_id, str(exc))
+            self._mark_failed(
+                document_id,
+                str(exc),
+                started_time=started_time,
+                finished_time=datetime.now(timezone.utc),
+                total_duration_ms=self._duration_ms(overall_started_at),
+                stage_durations=stage_durations,
+            )
             return self._get_document(document_id)
 
     def repo_clear_chunks(self, document_id: int) -> None:
@@ -62,6 +130,9 @@ class IngestService:
         stage: str,
         message: str,
         status: str | None = None,
+        started_time: datetime | None = None,
+        stage_durations: dict | None = None,
+        reset_metrics: bool = False,
     ) -> None:
         for attempt in range(2):
             try:
@@ -73,10 +144,17 @@ class IngestService:
                         document.status = status
                     document.processing_stage = stage
                     document.processing_message = message
+                    if started_time is not None and document.processing_started_time is None:
+                        document.processing_started_time = started_time
+                    if stage_durations is not None:
+                        document.stage_durations_json = dict(stage_durations)
                     if stage != "persisting":
                         document.error_message = None
-                    if stage == "preparing":
+                    if reset_metrics:
                         document.chunk_count = 0
+                        document.processing_finished_time = None
+                        document.processing_duration_ms = None
+                        document.stage_durations_json = {}
                     db.commit()
                     return
             except Exception as exc:
@@ -110,7 +188,16 @@ class IngestService:
                 )
             db.commit()
 
-    def _mark_success(self, document_id: int, chunk_count: int) -> None:
+    def _mark_success(
+        self,
+        document_id: int,
+        chunk_count: int,
+        *,
+        started_time: datetime,
+        finished_time: datetime,
+        total_duration_ms: int,
+        stage_durations: dict,
+    ) -> None:
         with SessionLocal() as db:
             document = db.get(Document, document_id)
             if not document:
@@ -119,10 +206,23 @@ class IngestService:
             document.processing_stage = "completed"
             document.processing_message = "文档处理完成。"
             document.chunk_count = chunk_count
+            document.processing_started_time = started_time
+            document.processing_finished_time = finished_time
+            document.processing_duration_ms = total_duration_ms
+            document.stage_durations_json = dict(stage_durations)
             document.error_message = None
             db.commit()
 
-    def _mark_failed(self, document_id: int, error_message: str) -> None:
+    def _mark_failed(
+        self,
+        document_id: int,
+        error_message: str,
+        *,
+        started_time: datetime,
+        finished_time: datetime,
+        total_duration_ms: int,
+        stage_durations: dict,
+    ) -> None:
         with SessionLocal() as db:
             document = db.get(Document, document_id)
             if not document:
@@ -130,6 +230,10 @@ class IngestService:
             document.status = "FAILED"
             document.processing_stage = "failed"
             document.processing_message = "文档处理失败。"
+            document.processing_started_time = started_time
+            document.processing_finished_time = finished_time
+            document.processing_duration_ms = total_duration_ms
+            document.stage_durations_json = dict(stage_durations)
             document.error_message = error_message
             document.chunk_count = 0
             db.commit()
@@ -141,3 +245,6 @@ class IngestService:
                 raise ValueError(f"document {document_id} not found")
             db.expunge(document)
             return document
+
+    def _duration_ms(self, started_at: float) -> int:
+        return int((time.perf_counter() - started_at) * 1000)
