@@ -9,6 +9,7 @@ from app.core.config import get_settings
 settings = get_settings()
 redis_client = Redis.from_url(settings.redis_url, decode_responses=True)
 QA_PROGRESS_TTL_SECONDS = 60 * 30
+DOCUMENT_TASK_QUEUE = "document:tasks"
 
 
 def ping_redis() -> bool:
@@ -60,3 +61,19 @@ def get_qa_progress(request_id: str) -> dict | None:
 
 def _qa_progress_key(request_id: str) -> str:
     return f"qa:progress:{request_id}"
+
+
+def enqueue_document_task(document_id: int) -> None:
+    payload = {
+        "document_id": document_id,
+        "enqueued_at": datetime.now(timezone.utc).isoformat(),
+    }
+    redis_client.lpush(DOCUMENT_TASK_QUEUE, json.dumps(payload, ensure_ascii=True))
+
+
+def blocking_pop_document_task(timeout: int = 5) -> dict | None:
+    item = redis_client.brpop(DOCUMENT_TASK_QUEUE, timeout=timeout)
+    if not item:
+        return None
+    _, payload = item
+    return json.loads(payload)

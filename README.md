@@ -50,6 +50,7 @@
 - 上传与重处理默认走后台异步处理，状态流转为 `QUEUED -> PROCESSING -> SUCCESS / FAILED`
 - 文档列表可查看当前处理阶段与进度说明，失败后可直接重新处理
 - 文档列表可查看总耗时与各阶段耗时，便于定位大文件慢在解析、切分还是向量化
+- 文档任务通过 `Redis` 队列投递，由独立 worker 消费，避免 Web 服务重启导致任务中断
 
 检索侧：
 - Query Rewrite
@@ -101,13 +102,19 @@ RERANK_BASE_URL=https://dashscope.aliyuncs.com/compatible-api/v1/reranks
 .venv/bin/python scripts/init_db.py
 ```
 
-4. 启动服务
+4. 启动文档 Worker
+
+```bash
+.venv/bin/python scripts/run_document_worker.py
+```
+
+5. 启动服务
 
 ```bash
 .venv/bin/uvicorn app.main:app --reload --port 8011
 ```
 
-5. 打开页面
+6. 打开页面
 
 [http://127.0.0.1:8011](http://127.0.0.1:8011)
 
