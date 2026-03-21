@@ -566,6 +566,28 @@
         font-size: 13px;
       }
 
+      .doc-toolbar {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 14px;
+      }
+
+      .doc-toolbar input,
+      .doc-toolbar select {
+        height: 38px;
+        padding: 0 12px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: white;
+        color: var(--ink);
+        font-size: 13px;
+      }
+
+      .doc-toolbar input {
+        flex: 1 1 220px;
+      }
+
       @media (max-width: 900px) {
         .hero,
         .grid,
@@ -585,6 +607,10 @@
           max-height: none;
           overflow: visible;
           padding-right: 0;
+        }
+
+        .doc-toolbar {
+          flex-direction: column;
         }
       }
     </style>
@@ -647,6 +673,16 @@
             </div>
             <button class="secondary" id="refreshListBtn">刷新</button>
           </div>
+          <div class="doc-toolbar">
+            <input id="docSearchInput" type="text" placeholder="搜索文档名" />
+            <select id="docStatusFilter">
+              <option value="ALL">全部状态</option>
+              <option value="QUEUED">只看排队中</option>
+              <option value="PROCESSING">只看处理中</option>
+              <option value="SUCCESS">只看成功</option>
+              <option value="FAILED">只看失败</option>
+            </select>
+          </div>
           <div id="docList" class="doc-list"></div>
         </div>
       </section>
@@ -700,6 +736,8 @@
       const reloadBtn = document.getElementById("reloadBtn");
       const refreshListBtn = document.getElementById("refreshListBtn");
       const refreshHealthBtn = document.getElementById("refreshHealthBtn");
+      const docSearchInput = document.getElementById("docSearchInput");
+      const docStatusFilter = document.getElementById("docStatusFilter");
       const messageEl = document.getElementById("message");
       const docListEl = document.getElementById("docList");
       const appStatusEl = document.getElementById("appStatus");
@@ -719,6 +757,8 @@
       let activeHistoryRequestId = "";
       let selectedDocumentIds = new Set();
       let latestDocuments = [];
+      let documentSearchKeyword = "";
+      let documentStatusFilterValue = "ALL";
       const qaStages = [
         { key: "received", label: "接收问题" },
         { key: "embedding", label: "生成问题向量" },
@@ -1059,6 +1099,23 @@
         latestDocuments = documents;
         const validIds = new Set(documents.map((item) => item.id));
         selectedDocumentIds = new Set(getSelectedDocumentIds().filter((id) => validIds.has(id)));
+        const filteredDocuments = documents
+          .filter((item) => {
+            const matchesStatus =
+              documentStatusFilterValue === "ALL" ? true : item.status === documentStatusFilterValue;
+            const matchesKeyword =
+              !documentSearchKeyword ||
+              item.file_name.toLowerCase().includes(documentSearchKeyword) ||
+              String(item.id).includes(documentSearchKeyword);
+            return matchesStatus && matchesKeyword;
+          })
+          .sort((a, b) => {
+            const priority = { FAILED: 0, PROCESSING: 1, QUEUED: 2, SUCCESS: 3 };
+            const pa = priority[a.status] ?? 9;
+            const pb = priority[b.status] ?? 9;
+            if (pa !== pb) return pa - pb;
+            return new Date(b.created_time || 0) - new Date(a.created_time || 0);
+          });
 
         if (!documents.length) {
           docListEl.innerHTML = '<div class="empty">还没有文档，先上传一个试试看。</div>';
@@ -1066,7 +1123,13 @@
           return;
         }
 
-        docListEl.innerHTML = documents
+        if (!filteredDocuments.length) {
+          docListEl.innerHTML = '<div class="empty">当前筛选条件下没有匹配文档。</div>';
+          syncScopeLabel();
+          return;
+        }
+
+        docListEl.innerHTML = filteredDocuments
           .map(
             (doc) => `
               <article class="doc-item">
@@ -1290,6 +1353,14 @@
       });
       clearDocSelectionBtn.addEventListener("click", () => {
         selectedDocumentIds = new Set();
+        renderDocuments(latestDocuments);
+      });
+      docSearchInput.addEventListener("input", (event) => {
+        documentSearchKeyword = event.target.value.trim().toLowerCase();
+        renderDocuments(latestDocuments);
+      });
+      docStatusFilter.addEventListener("change", (event) => {
+        documentStatusFilterValue = event.target.value;
         renderDocuments(latestDocuments);
       });
       refreshHistoryBtn.addEventListener("click", loadHistory);
