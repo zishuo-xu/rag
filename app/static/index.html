@@ -206,12 +206,15 @@
 
       .doc-list {
         display: grid;
-        gap: 14px;
+        gap: 10px;
+        max-height: 520px;
+        overflow-y: auto;
+        padding-right: 4px;
       }
 
       .doc-item {
-        padding: 18px;
-        border-radius: 18px;
+        padding: 12px 14px;
+        border-radius: 16px;
         border: 1px solid var(--line);
         background: linear-gradient(180deg, rgba(255,255,255,0.96), rgba(251,246,239,0.96));
       }
@@ -219,34 +222,37 @@
       .doc-top {
         display: flex;
         justify-content: space-between;
-        gap: 16px;
-        align-items: start;
+        gap: 12px;
+        align-items: center;
       }
 
       .doc-name {
         font-weight: 700;
-        font-size: 17px;
-        margin-bottom: 8px;
+        font-size: 15px;
+        margin-bottom: 4px;
         word-break: break-all;
       }
 
       .doc-meta {
         color: var(--muted);
-        font-size: 13px;
+        font-size: 12px;
         display: flex;
-        gap: 12px;
+        gap: 8px;
         flex-wrap: wrap;
       }
 
       .doc-actions {
         display: flex;
-        gap: 8px;
+        gap: 6px;
+        flex: 0 0 auto;
       }
 
       .doc-select {
         display: flex;
         align-items: center;
         gap: 10px;
+        min-width: 0;
+        flex: 1 1 auto;
       }
 
       .doc-checkbox {
@@ -255,6 +261,35 @@
         accent-color: #b45309;
         margin-top: 2px;
         flex: 0 0 auto;
+      }
+
+      .doc-body {
+        min-width: 0;
+        flex: 1 1 auto;
+      }
+
+      .doc-message {
+        margin-top: 6px;
+        font-size: 12px;
+        color: var(--muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .doc-error {
+        margin-top: 4px;
+        font-size: 12px;
+        color: var(--danger);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .doc-actions button {
+        padding: 8px 10px;
+        font-size: 12px;
+        border-radius: 12px;
       }
 
       .message {
@@ -544,6 +579,12 @@
 
         .doc-top {
           flex-direction: column;
+        }
+
+        .doc-list {
+          max-height: none;
+          overflow: visible;
+          padding-right: 0;
         }
       }
     </style>
@@ -1038,7 +1079,7 @@
                       ${selectedDocumentIds.has(doc.id) ? "checked" : ""}
                       onchange="toggleDocumentSelection(${doc.id}, this.checked)"
                     />
-                    <div>
+                    <div class="doc-body">
                       <div class="doc-name">${doc.file_name}</div>
                       <div class="doc-meta">
                         <span>ID: ${doc.id}</span>
@@ -1046,12 +1087,10 @@
                         <span>状态: ${doc.status}</span>
                         <span>阶段: ${doc.processing_stage || "-"}</span>
                         <span>Chunks: ${doc.chunk_count ?? 0}</span>
-                        <span>创建时间: ${formatTime(doc.created_time)}</span>
+                        <span>${formatTime(doc.created_time)}</span>
                       </div>
-                      <div class="doc-meta" style="margin-top: 6px">
-                        <span>进度说明: ${escapeHtml(doc.processing_message || "暂无")}</span>
-                        ${doc.error_message ? `<span style="color: var(--danger)">错误: ${escapeHtml(doc.error_message)}</span>` : ""}
-                      </div>
+                      <div class="doc-message" title="${escapeHtml(doc.processing_message || "暂无")}">进度说明：${escapeHtml(doc.processing_message || "暂无")}</div>
+                      ${doc.error_message ? `<div class="doc-error" title="${escapeHtml(doc.error_message)}">错误：${escapeHtml(doc.error_message)}</div>` : ""}
                     </div>
                   </div>
                   <div class="doc-actions">
