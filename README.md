@@ -100,6 +100,7 @@ RERANK_BASE_URL=https://dashscope.aliyuncs.com/compatible-api/v1/reranks
 
 ```env
 EMBEDDING_BATCH_SIZE=100
+PERSIST_BATCH_SIZE=200
 ```
 
 3. 初始化数据库

@@ -88,14 +88,14 @@ class IngestService:
             )
 
             stage_started_at = time.perf_counter()
-            self._update_processing(
-                document_id,
-                stage="persisting",
-                message="正在写入文本块和向量。",
+            self._persist_chunks(
+                document_id=document_id,
+                chunks=chunks,
+                embeddings=embeddings,
+                metadata=metadata,
                 started_time=started_time,
                 stage_durations=stage_durations,
             )
-            self._persist_chunks(document_id, chunks, embeddings, metadata)
             stage_durations["persisting"] = self._duration_ms(stage_started_at)
             self._mark_success(
                 document_id,
@@ -164,28 +164,51 @@ class IngestService:
                 time.sleep(0.5)
         logger.warning("skip document progress update after retries: document_id=%s stage=%s", document_id, stage)
 
-    def _persist_chunks(self, document_id: int, chunks, embeddings, metadata: dict | None) -> None:
+    def _persist_chunks(
+        self,
+        *,
+        document_id: int,
+        chunks,
+        embeddings,
+        metadata: dict | None,
+        started_time: datetime,
+        stage_durations: dict,
+    ) -> None:
+        batch_size = max(1, int(self.settings.persist_batch_size))
+        total_chunks = len(chunks)
+        total_batches = max(1, math.ceil(total_chunks / batch_size))
         with SessionLocal() as db:
             db.query(DocumentChunk).filter(DocumentChunk.document_id == document_id).delete()
-            for index, chunk in enumerate(chunks):
-                chunk_metadata = dict(metadata or {})
-                if chunk.section_title:
-                    chunk_metadata["section_title"] = chunk.section_title
-                semantic_tags = derive_semantic_tags(chunk.text, chunk.section_title)
-                if semantic_tags:
-                    chunk_metadata["semantic_tags"] = semantic_tags
-                db.add(
-                    DocumentChunk(
-                        document_id=document_id,
-                        chunk_index=index,
-                        chunk_text=chunk.text,
-                        section_title=chunk.section_title,
-                        embedding_json=embeddings[index] if index < len(embeddings) else None,
-                        embedding_vector=embeddings[index] if index < len(embeddings) else None,
-                        metadata_json=chunk_metadata or None,
-                    )
+            for batch_index in range(total_batches):
+                start = batch_index * batch_size
+                end = min(start + batch_size, total_chunks)
+                self._update_processing(
+                    document_id,
+                    stage="persisting",
+                    message=f"正在写入文本块和向量（第 {batch_index + 1}/{total_batches} 批，chunks {start + 1}-{end}）。",
+                    started_time=started_time,
+                    stage_durations=stage_durations,
                 )
-            db.commit()
+                for index in range(start, end):
+                    chunk = chunks[index]
+                    chunk_metadata = dict(metadata or {})
+                    if chunk.section_title:
+                        chunk_metadata["section_title"] = chunk.section_title
+                    semantic_tags = derive_semantic_tags(chunk.text, chunk.section_title)
+                    if semantic_tags:
+                        chunk_metadata["semantic_tags"] = semantic_tags
+                    db.add(
+                        DocumentChunk(
+                            document_id=document_id,
+                            chunk_index=index,
+                            chunk_text=chunk.text,
+                            section_title=chunk.section_title,
+                            embedding_json=embeddings[index] if index < len(embeddings) else None,
+                            embedding_vector=embeddings[index] if index < len(embeddings) else None,
+                            metadata_json=chunk_metadata or None,
+                        )
+                    )
+                db.commit()
 
     def _mark_success(
         self,
