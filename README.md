@@ -27,6 +27,7 @@
 - 事实化提示词
 - 题型定向约束
 - 简洁句式收束
+- 题型驱动的上下文组织
 
 当前 `11` 题端到端 LLM 样本回归结果见：
 - [industry_eval_with_deepseek_chat_sample_concise_format.json](/Users/xuzishuo/ai-work/rag/evals/reports/industry_eval_with_deepseek_chat_sample_concise_format.json)
@@ -198,6 +199,14 @@ PERSIST_BATCH_SIZE=200
 - `answer_token_f1 = 35.26%`
 - `ROUGE-L F1 = 68.02%`
 - `average_latency = 2876.2 ms`
+
+最新 `11` 题生成质量小样本实验表明，“题型驱动的上下文组织”对生成质量有净增益：
+- [industry_eval_with_deepseek_chat_realistic_profile_context_sample11.json](/Users/xuzishuo/ai-work/rag/evals/reports/industry_eval_with_deepseek_chat_realistic_profile_context_sample11.json)
+- `answer_keyword_recall = 92.42%`
+- `golden_answer_recall = 63.57%`
+- `answer_token_f1 = 42.06%`
+- `ROUGE-L F1 = 71.66%`
+- `average_latency = 4575.6 ms`
 
 阿里百炼 rerank 接入后的 `19` 题真实问法回归结果：
 - [industry_eval_with_aliyun_rerank_realistic.json](/Users/xuzishuo/ai-work/rag/evals/reports/industry_eval_with_aliyun_rerank_realistic.json)

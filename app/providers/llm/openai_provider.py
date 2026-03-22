@@ -31,11 +31,23 @@ class OpenAILLMProvider:
             )
         self.prefers_chat_completions = "api.deepseek.com" in self.base_url
 
-    def generate_answer(self, *, question: str, context_blocks: list[str], answer_directive: str | None = None) -> LLMResult:
+    def generate_answer(
+        self,
+        *,
+        question: str,
+        context_blocks: list[str],
+        answer_directive: str | None = None,
+        generation_profile: str = "standard",
+    ) -> LLMResult:
         if not self.enabled or not self.client:
             raise RuntimeError("llm is not configured")
 
-        prompt = self.build_prompt(question=question, context_blocks=context_blocks, answer_directive=answer_directive)
+        prompt = self.build_prompt(
+            question=question,
+            context_blocks=context_blocks,
+            answer_directive=answer_directive,
+            generation_profile=generation_profile,
+        )
         responses_error: str | None = None
 
         if not self.prefers_chat_completions:
@@ -67,6 +79,7 @@ class OpenAILLMProvider:
                         "回答中的关键结论后尽量附上 [1] 这类引用编号，且只能使用已提供的编号。"
                         "优先输出事实本身，不要先写空泛总结。"
                         "默认用一句到两句短句作答，不要写项目符号。"
+                        "请根据当前题型使用合适的表达密度，避免简单题过度展开，也避免综合题漏掉核心要点。"
                     ),
                 },
                 {"role": "user", "content": prompt},
@@ -83,9 +96,17 @@ class OpenAILLMProvider:
             fallback_reason=responses_error if not self.prefers_chat_completions else None,
         )
 
-    def build_prompt(self, *, question: str, context_blocks: list[str], answer_directive: str | None = None) -> str:
+    def build_prompt(
+        self,
+        *,
+        question: str,
+        context_blocks: list[str],
+        answer_directive: str | None = None,
+        generation_profile: str = "standard",
+    ) -> str:
         context = "\n\n".join(context_blocks)
         directive = f"\n\n本题补充要求：{answer_directive}" if answer_directive else ""
+        profile_directive = _profile_directive(generation_profile)
         return (
             "你是一个企业知识库问答助手。"
             "你必须严格根据提供的参考资料回答。"
@@ -107,6 +128,17 @@ class OpenAILLMProvider:
             "回答中的关键结论后尽量追加引用编号，例如 [1] 或 [1][2]。"
             "不要编造不存在的引用编号。"
             f"\n\n用户问题：{question}"
+            f"\n\n本题生成模式：{profile_directive}"
             f"{directive}"
             f"\n\n参考资料：\n{context}"
         )
+
+
+def _profile_directive(generation_profile: str) -> str:
+    mapping = {
+        "fact": "事实题：优先抽取最直接的一到两个事实，不做额外扩展。",
+        "list": "列举题：优先保留 2 到 4 个并列点或实体，不要把它们压缩成泛化概念。",
+        "analysis": "综合题：优先给结论，再补最关键的一句依据，避免背景铺陈。",
+        "standard": "标准题：优先事实表达，保持简洁。",
+    }
+    return mapping.get(generation_profile, mapping["standard"])

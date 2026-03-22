@@ -240,7 +240,8 @@ class QAService:
             )
             reranked_hits = self.rerank_service.rerank(rewritten_question, candidates, limit=12)
             processed_hits = self.retrieval_postprocessor.postprocess(reranked_hits, limit=16)
-            answer_hit_limit = 4 if self.llm_provider.enabled else 3
+            generation_profile = _generation_profile(rewritten_question)
+            answer_hit_limit = _answer_hit_limit(generation_profile, self.llm_provider.enabled)
             top_hits = _select_answer_hits(rewritten_question, processed_hits, limit=answer_hit_limit)
             self._set_progress(
                 request_id,
@@ -254,6 +255,7 @@ class QAService:
                     "top_hit_count": len(top_hits),
                     "top_hit_preview": _processed_hit_preview(top_hits),
                     "rewritten_question": rewritten_question,
+                    "generation_profile": generation_profile,
                 },
                 enabled=track_progress,
             )
@@ -285,12 +287,17 @@ class QAService:
                         "applied_rules": rewrite_result.applied_rules,
                         "model": self.settings.llm_model or "keyword-retrieval",
                         "citation_count": len(citations),
+                        "generation_profile": generation_profile,
                         "citation_preview": _citation_preview(citations),
-                        "llm_input_preview": self._build_llm_input_preview(rewritten_question, citations),
+                        "llm_input_preview": self._build_llm_input_preview(rewritten_question, citations, generation_profile),
                     },
                     enabled=track_progress,
                 )
-                answer, model_name, llm_input_text, llm_output_text, llm_provider_status, llm_fallback_reason = self._generate_answer(rewritten_question, citations)
+                answer, model_name, llm_input_text, llm_output_text, llm_provider_status, llm_fallback_reason = self._generate_answer(
+                    rewritten_question,
+                    citations,
+                    generation_profile,
+                )
                 status = "SUCCESS"
                 self._set_progress(
                     request_id,
@@ -303,6 +310,7 @@ class QAService:
                         "rewritten_question": rewritten_question,
                         "model": self.settings.llm_model or "keyword-retrieval",
                         "citation_count": len(citations),
+                        "generation_profile": generation_profile,
                         "citation_preview": _citation_preview(citations),
                         "llm_input_preview": _preview_text(llm_input_text),
                     },
@@ -362,6 +370,7 @@ class QAService:
                     "elapsed_time_ms": elapsed_time_ms,
                     "citation_count": len(citations),
                     "answer_preview": answer[:220],
+                    "generation_profile": generation_profile if top_hits else "none",
                     "llm_input_preview": _preview_text(llm_input_text),
                     "llm_output_preview": _preview_text(llm_output_text),
                     "llm_provider_status": llm_provider_status,
@@ -426,13 +435,18 @@ class QAService:
             output_summary=output_summary,
         )
 
-    def _generate_answer(self, question: str, citations: list[CitationItem]) -> tuple[str, str, str | None, str | None, str, str | None]:
+    def _generate_answer(
+        self,
+        question: str,
+        citations: list[CitationItem],
+        generation_profile: str,
+    ) -> tuple[str, str, str | None, str | None, str, str | None]:
         context_blocks = [
             (
                 f"[{citation.citation_id}] 文件: {citation.file_name}; "
                 f"Chunk: {citation.chunk_index}; "
                 f"章节: {citation.section_title or '未标注'}; "
-                f"内容: {_compress_citation_content(citation.content, question)}"
+                f"内容: {_compress_citation_content(citation.content, question, generation_profile=generation_profile)}"
             )
             for citation in citations
         ]
@@ -443,6 +457,7 @@ class QAService:
                     question=question,
                     context_blocks=context_blocks,
                     answer_directive=answer_directive,
+                    generation_profile=generation_profile,
                 )
                 if result and result.answer:
                     return (
@@ -455,7 +470,7 @@ class QAService:
                     )
             except Exception as exc:
                 fallback_answer = _build_answer(question, citations)
-                fallback_input = self._build_llm_input_preview(question, citations)
+                fallback_input = self._build_llm_input_preview(question, citations, generation_profile)
                 return (
                     fallback_answer,
                     "keyword-retrieval",
@@ -465,16 +480,16 @@ class QAService:
                     f"external_llm_failed: {type(exc).__name__}: {exc}",
                 )
         fallback_answer = _build_answer(question, citations)
-        fallback_input = self._build_llm_input_preview(question, citations)
+        fallback_input = self._build_llm_input_preview(question, citations, generation_profile)
         return fallback_answer, "keyword-retrieval", fallback_input, fallback_answer, "local_fallback", "llm not configured"
 
-    def _build_llm_input_preview(self, question: str, citations: list[CitationItem]) -> str:
+    def _build_llm_input_preview(self, question: str, citations: list[CitationItem], generation_profile: str) -> str:
         context_blocks = [
             (
                 f"[{citation.citation_id}] 文件: {citation.file_name}; "
                 f"Chunk: {citation.chunk_index}; "
                 f"章节: {citation.section_title or '未标注'}; "
-                f"内容: {_compress_citation_content(citation.content, question)}"
+                f"内容: {_compress_citation_content(citation.content, question, generation_profile=generation_profile)}"
             )
             for citation in citations
         ]
@@ -484,6 +499,7 @@ class QAService:
                 question=question,
                 context_blocks=context_blocks,
                 answer_directive=answer_directive,
+                generation_profile=generation_profile,
             )
         return self._build_fallback_prompt(question, context_blocks)
 
@@ -848,8 +864,15 @@ def _preview_text(text: str | None, limit: int = 220) -> str | None:
     return text[:limit]
 
 
-def _compress_citation_content(content: str, question: str, limit: int = 180) -> str:
+def _compress_citation_content(content: str, question: str, limit: int = 180, generation_profile: str = "standard") -> str:
     normalized = re.sub(r"\s+", " ", content).strip()
+    profile_limits = {
+        "fact": 120,
+        "list": 220,
+        "analysis": 180,
+        "standard": limit,
+    }
+    limit = profile_limits.get(generation_profile, limit)
     sentences = [item.strip() for item in re.split(r"(?<=[。！？；])", normalized) if item.strip()]
     question_terms = _extract_tokens(question)
     selected: list[str] = []
@@ -865,6 +888,26 @@ def _compress_citation_content(content: str, question: str, limit: int = 180) ->
 
     compressed = " ".join(selected).strip()
     return compressed[:limit].rstrip("，；、 ")
+
+
+def _generation_profile(question: str) -> str:
+    lowered = question.lower()
+    if any(marker in lowered for marker in ["为什么", "为何", "原因", "如何理解", "区别", "影响", "前景", "趋势"]):
+        return "analysis"
+    if any(marker in lowered for marker in ["哪些", "包括什么", "包含什么", "有哪些", "分别", "列举", "特点", "布局"]):
+        return "list"
+    return "fact"
+
+
+def _answer_hit_limit(generation_profile: str, llm_enabled: bool) -> int:
+    if not llm_enabled:
+        return 3
+    mapping = {
+        "fact": 3,
+        "list": 4,
+        "analysis": 4,
+    }
+    return mapping.get(generation_profile, 4)
 
 
 def _generation_mode(model_name: str, llm_provider_status: str | None) -> str:
