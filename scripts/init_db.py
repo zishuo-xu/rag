@@ -24,6 +24,9 @@ def main() -> None:
         conn.execute(text("ALTER TABLE IF EXISTS document ADD COLUMN IF NOT EXISTS processing_duration_ms INTEGER"))
         conn.execute(text("ALTER TABLE IF EXISTS document ADD COLUMN IF NOT EXISTS stage_durations_json JSON"))
         conn.execute(text("ALTER TABLE IF EXISTS document_chunk ADD COLUMN IF NOT EXISTS embedding_json JSON"))
+        conn.execute(text("ALTER TABLE IF EXISTS document_chunk ADD COLUMN IF NOT EXISTS page_start INTEGER"))
+        conn.execute(text("ALTER TABLE IF EXISTS document_chunk ADD COLUMN IF NOT EXISTS page_end INTEGER"))
+        conn.execute(text("ALTER TABLE IF EXISTS document_chunk ADD COLUMN IF NOT EXISTS semantic_tags_json JSON"))
         conn.execute(
             text(
                 f"ALTER TABLE IF EXISTS document_chunk "
@@ -46,6 +49,18 @@ def main() -> None:
             text(
                 "CREATE INDEX IF NOT EXISTS idx_document_chunk_document_id_chunk_index "
                 "ON document_chunk (document_id, chunk_index)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_document_chunk_document_id_page_range "
+                "ON document_chunk (document_id, page_start, page_end)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_document_chunk_section_title "
+                "ON document_chunk (section_title)"
             )
         )
         conn.execute(

@@ -54,6 +54,7 @@
 - 文档任务通过 `Redis` 队列投递，由独立 worker 消费，避免 Web 服务重启导致任务中断
 - 健康检查会展示 document worker 在线状态，worker 启动时会自动恢复长时间卡住的陈旧任务
 - PDF 解析会保留页级标记，并对扫描版 / 无文字层 PDF 给出更明确的错误提示
+- `document_chunk` 已结构化沉淀 `page_start / page_end / section_title / semantic_tags_json`，便于后续检索过滤和排序
 
 检索侧：
 - Query Rewrite
@@ -62,6 +63,7 @@
 - 可选阿里百炼 `qwen3-rerank` 外部 rerank
 - 相邻 chunk 合并与重复证据去重
 - 支持只在选中文档内提问
+- rerank 已优先读取显式结构化语义标签，而不是只依赖 `metadata_json`
 
 问答侧：
 - 外部 LLM 生成答案

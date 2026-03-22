@@ -194,6 +194,10 @@ class IngestService:
                     chunk_metadata = dict(metadata or {})
                     if chunk.section_title:
                         chunk_metadata["section_title"] = chunk.section_title
+                    if chunk.page_start is not None:
+                        chunk_metadata["page_start"] = chunk.page_start
+                    if chunk.page_end is not None:
+                        chunk_metadata["page_end"] = chunk.page_end
                     semantic_tags = derive_semantic_tags(chunk.text, chunk.section_title)
                     if semantic_tags:
                         chunk_metadata["semantic_tags"] = semantic_tags
@@ -202,7 +206,11 @@ class IngestService:
                             document_id=document_id,
                             chunk_index=index,
                             chunk_text=chunk.text,
+                            page_no=chunk.page_start,
+                            page_start=chunk.page_start,
+                            page_end=chunk.page_end,
                             section_title=chunk.section_title,
+                            semantic_tags_json=semantic_tags or None,
                             embedding_json=embeddings[index] if index < len(embeddings) else None,
                             embedding_vector=embeddings[index] if index < len(embeddings) else None,
                             metadata_json=chunk_metadata or None,

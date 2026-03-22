@@ -166,6 +166,8 @@ def _normalize_section_title(section_title: str | None) -> str | None:
 
 
 def _chunk_semantic_tags(chunk: DocumentChunk) -> set[str]:
+    if chunk.semantic_tags_json:
+        return set(chunk.semantic_tags_json)
     metadata_tags = []
     if chunk.metadata_json and isinstance(chunk.metadata_json, dict):
         metadata_tags = chunk.metadata_json.get("semantic_tags") or []

@@ -6,6 +6,8 @@ from dataclasses import dataclass
 class TextChunk:
     text: str
     section_title: str | None = None
+    page_start: int | None = None
+    page_end: int | None = None
 
 
 def split_text(text: str, chunk_size: int = 600, overlap: int = 80) -> list[str]:
@@ -25,13 +27,42 @@ def split_text_with_metadata(text: str, chunk_size: int = 600, overlap: int = 80
     current_length = 0
     current_section_title: str | None = None
     pending_heading: str | None = None
+    current_page_start: int | None = None
+    current_page_end: int | None = None
 
     for paragraph in paragraphs:
+        page_no = _extract_page_marker(paragraph)
+        if page_no is not None:
+            if current_parts:
+                chunk = _merge_parts(current_parts)
+                if _is_meaningful_chunk(chunk):
+                    chunks.append(
+                        TextChunk(
+                            text=chunk,
+                            section_title=current_section_title,
+                            page_start=current_page_start,
+                            page_end=current_page_end,
+                        )
+                    )
+                current_parts = []
+                current_length = 0
+            current_page_start = page_no
+            current_page_end = page_no
+            pending_heading = None
+            continue
+
         if _is_heading(paragraph):
             if current_parts:
                 chunk = _merge_parts(current_parts)
                 if _is_meaningful_chunk(chunk):
-                    chunks.append(TextChunk(text=chunk, section_title=current_section_title))
+                    chunks.append(
+                        TextChunk(
+                            text=chunk,
+                            section_title=current_section_title,
+                            page_start=current_page_start,
+                            page_end=current_page_end,
+                        )
+                    )
                 current_parts = []
                 current_length = 0
             pending_heading = paragraph
@@ -46,7 +77,14 @@ def split_text_with_metadata(text: str, chunk_size: int = 600, overlap: int = 80
             if current_parts:
                 chunk = _merge_parts(current_parts)
                 if _is_meaningful_chunk(chunk):
-                    chunks.append(TextChunk(text=chunk, section_title=current_section_title))
+                    chunks.append(
+                        TextChunk(
+                            text=chunk,
+                            section_title=current_section_title,
+                            page_start=current_page_start,
+                            page_end=current_page_end,
+                        )
+                    )
                 current_parts = []
                 current_length = 0
 
@@ -59,7 +97,14 @@ def split_text_with_metadata(text: str, chunk_size: int = 600, overlap: int = 80
                     prefix = heading_line
             for piece in _split_long_paragraph(paragraph, chunk_size, overlap, prefix=prefix):
                 if _is_meaningful_chunk(piece):
-                    chunks.append(TextChunk(text=piece, section_title=current_section_title))
+                    chunks.append(
+                        TextChunk(
+                            text=piece,
+                            section_title=current_section_title,
+                            page_start=current_page_start,
+                            page_end=current_page_end,
+                        )
+                    )
             continue
 
         projected = current_length + len(paragraph) + (2 if current_parts else 0)
@@ -70,7 +115,14 @@ def split_text_with_metadata(text: str, chunk_size: int = 600, overlap: int = 80
 
         chunk = _merge_parts(current_parts)
         if _is_meaningful_chunk(chunk):
-            chunks.append(TextChunk(text=chunk, section_title=current_section_title))
+            chunks.append(
+                TextChunk(
+                    text=chunk,
+                    section_title=current_section_title,
+                    page_start=current_page_start,
+                    page_end=current_page_end,
+                )
+            )
 
         current_parts = [paragraph]
         current_length = len(paragraph)
@@ -78,7 +130,14 @@ def split_text_with_metadata(text: str, chunk_size: int = 600, overlap: int = 80
     if current_parts:
         chunk = _merge_parts(current_parts)
         if _is_meaningful_chunk(chunk):
-            chunks.append(TextChunk(text=chunk, section_title=current_section_title))
+            chunks.append(
+                TextChunk(
+                    text=chunk,
+                    section_title=current_section_title,
+                    page_start=current_page_start,
+                    page_end=current_page_end,
+                )
+            )
 
     return chunks
 
@@ -117,11 +176,19 @@ def _merge_parts(parts: list[str]) -> str:
 
 
 def _is_heading(text: str) -> bool:
-    return bool(re.match(r"^#{1,6}\s+", text.strip()))
+    stripped = text.strip()
+    return bool(re.match(r"^#{1,6}\s+", stripped)) and _extract_page_marker(stripped) is None
 
 
 def _normalize_heading(text: str) -> str:
     return re.sub(r"^#{1,6}\s+", "", text.strip()).strip()
+
+
+def _extract_page_marker(text: str) -> int | None:
+    match = re.fullmatch(r"##\s+Page\s+(\d+)", text.strip(), flags=re.IGNORECASE)
+    if not match:
+        return None
+    return int(match.group(1))
 
 
 def _format_heading_prefix(section_title: str) -> str:
