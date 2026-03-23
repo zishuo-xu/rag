@@ -292,6 +292,62 @@
         border-radius: 12px;
       }
 
+      .task-strip {
+        margin-top: 8px;
+        padding: 8px 10px;
+        border-radius: 12px;
+        background: rgba(246, 231, 211, 0.55);
+        border: 1px solid rgba(220, 207, 187, 0.8);
+        font-size: 12px;
+        color: var(--muted);
+      }
+
+      .task-strip strong {
+        color: var(--brand-dark);
+      }
+
+      .doc-inspector {
+        margin-top: 14px;
+        padding: 14px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.82);
+      }
+
+      .task-list {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .task-item {
+        padding: 12px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: rgba(247, 242, 234, 0.9);
+      }
+
+      .task-meta {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        font-size: 12px;
+        color: var(--muted);
+        margin-top: 4px;
+      }
+
+      .task-message {
+        margin-top: 8px;
+        font-size: 13px;
+        color: var(--ink);
+      }
+
+      .task-error {
+        margin-top: 6px;
+        color: var(--danger);
+        font-size: 12px;
+      }
+
       .message {
         margin-top: 14px;
         min-height: 24px;
@@ -688,6 +744,7 @@
             </select>
           </div>
           <div id="docList" class="doc-list"></div>
+          <div id="docInspector" class="doc-inspector empty">点击文档“详情”后，这里会显示最近任务记录。</div>
         </div>
       </section>
 
@@ -744,6 +801,7 @@
       const docStatusFilter = document.getElementById("docStatusFilter");
       const messageEl = document.getElementById("message");
       const docListEl = document.getElementById("docList");
+      const docInspectorEl = document.getElementById("docInspector");
       const appStatusEl = document.getElementById("appStatus");
       const depsStatusEl = document.getElementById("depsStatus");
       const workerStatusEl = document.getElementById("workerStatus");
@@ -1197,6 +1255,11 @@
                       </div>
                       <div class="doc-message" title="${escapeHtml(doc.processing_message || "暂无")}">进度说明：${escapeHtml(doc.processing_message || "暂无")}</div>
                       <div class="doc-message" title="${escapeHtml(formatStageDurations(doc.stage_durations_json))}">阶段耗时：${escapeHtml(formatStageDurations(doc.stage_durations_json))}</div>
+                      ${
+                        doc.latest_task
+                          ? `<div class="task-strip"><strong>最近任务</strong> #${doc.latest_task.id} · ${escapeHtml(doc.latest_task.trigger_source || "-")} · ${escapeHtml(doc.latest_task.status || "-")} · ${escapeHtml(doc.latest_task.processing_stage || "-")} · ${formatDuration(doc.latest_task.processing_duration_ms)}</div>`
+                          : ""
+                      }
                       ${doc.error_message ? `<div class="doc-error" title="${escapeHtml(doc.error_message)}">错误：${escapeHtml(doc.error_message)}</div>` : ""}
                     </div>
                   </div>
@@ -1222,6 +1285,44 @@
         } catch (error) {
           docListEl.innerHTML = '<div class="empty">文档列表加载失败。</div>';
         }
+      }
+
+      function buildTaskHistoryHtml(document) {
+        const recentTasks = document.recent_tasks || [];
+        if (!recentTasks.length) {
+          return `<div class="empty">文档 ${document.id} 暂无任务历史。</div>`;
+        }
+        return `
+          <div>
+            <div class="section-title" style="font-size:18px;">文档任务历史</div>
+            <p class="section-subtitle" style="margin-bottom:10px;">${escapeHtml(document.file_name)} 最近 ${recentTasks.length} 次任务。</p>
+            <div class="task-list">
+              ${recentTasks
+                .map(
+                  (task) => `
+                    <div class="task-item">
+                      <div style="font-weight:700;">任务 #${task.id}</div>
+                      <div class="task-meta">
+                        <span>来源: ${escapeHtml(task.trigger_source || "-")}</span>
+                        <span>状态: ${escapeHtml(task.status || "-")}</span>
+                        <span>阶段: ${escapeHtml(task.processing_stage || "-")}</span>
+                        <span>耗时: ${formatDuration(task.processing_duration_ms)}</span>
+                        <span>${formatTime(task.created_time)}</span>
+                      </div>
+                      <div class="task-message">${escapeHtml(task.processing_message || "暂无任务说明")}</div>
+                      ${
+                        task.stage_durations_json
+                          ? `<div class="doc-message">阶段耗时：${escapeHtml(formatStageDurations(task.stage_durations_json))}</div>`
+                          : ""
+                      }
+                      ${task.error_message ? `<div class="task-error">错误：${escapeHtml(task.error_message)}</div>` : ""}
+                    </div>
+                  `
+                )
+                .join("")}
+            </div>
+          </div>
+        `;
       }
 
       function stopDocumentPolling() {
@@ -1281,6 +1382,8 @@
             throw new Error(data.detail || "查询失败");
           }
 
+          docInspectorEl.className = "doc-inspector";
+          docInspectorEl.innerHTML = buildTaskHistoryHtml(data);
           setMessage(
             `文档详情: ${data.file_name} | 状态 ${data.status} | 路径 ${data.file_path}`,
             "info"
