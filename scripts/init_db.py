@@ -29,6 +29,25 @@ def main() -> None:
         conn.execute(text("ALTER TABLE IF EXISTS document_chunk ADD COLUMN IF NOT EXISTS semantic_tags_json JSON"))
         conn.execute(
             text(
+                "CREATE TABLE IF NOT EXISTS document_task ("
+                "id BIGSERIAL PRIMARY KEY, "
+                "document_id BIGINT NOT NULL REFERENCES document(id), "
+                "task_type VARCHAR(32) NOT NULL DEFAULT 'INGEST', "
+                "trigger_source VARCHAR(32) NOT NULL DEFAULT 'SYSTEM', "
+                "status VARCHAR(32) NOT NULL DEFAULT 'QUEUED', "
+                "processing_stage VARCHAR(64), "
+                "processing_message TEXT, "
+                "processing_started_time TIMESTAMPTZ, "
+                "processing_finished_time TIMESTAMPTZ, "
+                "processing_duration_ms INTEGER, "
+                "stage_durations_json JSON, "
+                "error_message TEXT, "
+                "created_time TIMESTAMPTZ DEFAULT now(), "
+                "updated_time TIMESTAMPTZ DEFAULT now())"
+            )
+        )
+        conn.execute(
+            text(
                 f"ALTER TABLE IF EXISTS document_chunk "
                 f"ADD COLUMN IF NOT EXISTS embedding_vector vector({EMBEDDING_DIMENSION})"
             )
@@ -43,6 +62,18 @@ def main() -> None:
             text(
                 "CREATE INDEX IF NOT EXISTS idx_document_status_created_time "
                 "ON document (status, created_time DESC)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_document_task_document_id_created_time "
+                "ON document_task (document_id, created_time DESC)"
+            )
+        )
+        conn.execute(
+            text(
+                "CREATE INDEX IF NOT EXISTS idx_document_task_status_updated_time "
+                "ON document_task (status, updated_time DESC)"
             )
         )
         conn.execute(

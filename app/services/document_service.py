@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.core.config import get_settings
 from app.db.models.document import Document
 from app.db.repositories.document_repository import DocumentRepository
+from app.db.repositories.document_task_repository import DocumentTaskRepository
 from app.services.document_task_service import DocumentTaskService
 
 
@@ -17,6 +18,7 @@ class DocumentService:
     def __init__(self, db: Session) -> None:
         self.db = db
         self.repo = DocumentRepository(db)
+        self.task_repo = DocumentTaskRepository(db)
         self.settings = get_settings()
 
     def list_documents(self) -> list[Document]:
@@ -57,7 +59,16 @@ class DocumentService:
             document.processing_message = "文档已入队，等待后台处理。"
             self.db.commit()
             self.db.refresh(document)
-            DocumentTaskService.enqueue(document.id)
+            task = self.task_repo.create(
+                document_id=document.id,
+                trigger_source="UPLOAD",
+                status="QUEUED",
+                processing_stage="queued",
+                processing_message="文档已入队，等待后台处理。",
+            )
+            DocumentTaskService.enqueue(document.id, task.id)
+            document.latest_task = task
+            document.task_id = task.id
             return document
         except Exception:
             stored_path.unlink(missing_ok=True)
@@ -86,5 +97,14 @@ class DocumentService:
         document.chunk_count = 0
         self.db.commit()
         self.db.refresh(document)
-        DocumentTaskService.enqueue(document.id)
+        task = self.task_repo.create(
+            document_id=document.id,
+            trigger_source="REPROCESS",
+            status="QUEUED",
+            processing_stage="queued",
+            processing_message="文档已重新入队，等待后台处理。",
+        )
+        DocumentTaskService.enqueue(document.id, task.id)
+        document.latest_task = task
+        document.task_id = task.id
         return document

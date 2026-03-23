@@ -64,9 +64,10 @@ def _qa_progress_key(request_id: str) -> str:
     return f"qa:progress:{request_id}"
 
 
-def enqueue_document_task(document_id: int) -> None:
+def enqueue_document_task(document_id: int, task_id: int) -> None:
     payload = {
         "document_id": document_id,
+        "task_id": task_id,
         "enqueued_at": datetime.now(timezone.utc).isoformat(),
     }
     redis_client.lpush(DOCUMENT_TASK_QUEUE, json.dumps(payload, ensure_ascii=True))

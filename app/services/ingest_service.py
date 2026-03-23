@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from app.core.config import get_settings
 from app.db.models.document import Document
 from app.db.models.document_chunk import DocumentChunk
+from app.db.models.document_task import DocumentTask
 from app.db.session import SessionLocal
 from app.providers.embedding.provider import EmbeddingProvider
 from app.utils.file_parser import parse_file
@@ -22,7 +23,7 @@ class IngestService:
         self.settings = get_settings()
         self.embedding_provider = EmbeddingProvider()
 
-    def process_document(self, document: Document) -> Document:
+    def process_document(self, document: Document, task_id: int | None = None) -> Document:
         document_id = document.id
         file_path = document.file_path
         file_type = document.file_type
@@ -36,6 +37,7 @@ class IngestService:
                 status="PROCESSING",
                 stage="preparing",
                 message="正在准备处理文档。",
+                task_id=task_id,
                 started_time=started_time,
                 stage_durations=stage_durations,
                 reset_metrics=True,
@@ -48,6 +50,7 @@ class IngestService:
                 document_id,
                 stage="parsing",
                 message="正在解析原始文件。",
+                task_id=task_id,
                 started_time=started_time,
                 stage_durations=stage_durations,
             )
@@ -59,6 +62,7 @@ class IngestService:
                 document_id,
                 stage="cleaning",
                 message="正在清洗文本内容。",
+                task_id=task_id,
                 started_time=started_time,
                 stage_durations=stage_durations,
             )
@@ -72,6 +76,7 @@ class IngestService:
                 document_id,
                 stage="splitting",
                 message="正在切分文本片段。",
+                task_id=task_id,
                 started_time=started_time,
                 stage_durations=stage_durations,
             )
@@ -93,6 +98,7 @@ class IngestService:
                 chunks=chunks,
                 embeddings=embeddings,
                 metadata=metadata,
+                task_id=task_id,
                 started_time=started_time,
                 stage_durations=stage_durations,
             )
@@ -100,6 +106,7 @@ class IngestService:
             self._mark_success(
                 document_id,
                 len(chunks),
+                task_id=task_id,
                 started_time=started_time,
                 finished_time=datetime.now(timezone.utc),
                 total_duration_ms=self._duration_ms(overall_started_at),
@@ -110,6 +117,7 @@ class IngestService:
             self._mark_failed(
                 document_id,
                 str(exc),
+                task_id=task_id,
                 started_time=started_time,
                 finished_time=datetime.now(timezone.utc),
                 total_duration_ms=self._duration_ms(overall_started_at),
@@ -129,6 +137,7 @@ class IngestService:
         stage: str,
         message: str,
         status: str | None = None,
+        task_id: int | None = None,
         started_time: datetime | None = None,
         stage_durations: dict | None = None,
         reset_metrics: bool = False,
@@ -154,6 +163,23 @@ class IngestService:
                         document.processing_finished_time = None
                         document.processing_duration_ms = None
                         document.stage_durations_json = {}
+                    if task_id is not None:
+                        task = db.get(DocumentTask, task_id)
+                        if task:
+                            if status:
+                                task.status = status
+                            task.processing_stage = stage
+                            task.processing_message = message
+                            if started_time is not None and task.processing_started_time is None:
+                                task.processing_started_time = started_time
+                            if stage_durations is not None:
+                                task.stage_durations_json = dict(stage_durations)
+                            if stage != "persisting":
+                                task.error_message = None
+                            if reset_metrics:
+                                task.processing_finished_time = None
+                                task.processing_duration_ms = None
+                                task.stage_durations_json = {}
                     db.commit()
                     return
             except Exception as exc:
@@ -171,6 +197,7 @@ class IngestService:
         chunks,
         embeddings,
         metadata: dict | None,
+        task_id: int | None,
         started_time: datetime,
         stage_durations: dict,
     ) -> None:
@@ -186,6 +213,7 @@ class IngestService:
                     document_id,
                     stage="persisting",
                     message=f"正在写入文本块和向量（第 {batch_index + 1}/{total_batches} 批，chunks {start + 1}-{end}）。",
+                    task_id=task_id,
                     started_time=started_time,
                     stage_durations=stage_durations,
                 )
@@ -223,6 +251,7 @@ class IngestService:
         document_id: int,
         chunk_count: int,
         *,
+        task_id: int | None,
         started_time: datetime,
         finished_time: datetime,
         total_duration_ms: int,
@@ -241,6 +270,17 @@ class IngestService:
             document.processing_duration_ms = total_duration_ms
             document.stage_durations_json = dict(stage_durations)
             document.error_message = None
+            if task_id is not None:
+                task = db.get(DocumentTask, task_id)
+                if task:
+                    task.status = "SUCCESS"
+                    task.processing_stage = "completed"
+                    task.processing_message = "文档处理完成。"
+                    task.processing_started_time = started_time
+                    task.processing_finished_time = finished_time
+                    task.processing_duration_ms = total_duration_ms
+                    task.stage_durations_json = dict(stage_durations)
+                    task.error_message = None
             db.commit()
 
     def _mark_failed(
@@ -248,6 +288,7 @@ class IngestService:
         document_id: int,
         error_message: str,
         *,
+        task_id: int | None,
         started_time: datetime,
         finished_time: datetime,
         total_duration_ms: int,
@@ -266,6 +307,17 @@ class IngestService:
             document.stage_durations_json = dict(stage_durations)
             document.error_message = error_message
             document.chunk_count = 0
+            if task_id is not None:
+                task = db.get(DocumentTask, task_id)
+                if task:
+                    task.status = "FAILED"
+                    task.processing_stage = "failed"
+                    task.processing_message = "文档处理失败。"
+                    task.processing_started_time = started_time
+                    task.processing_finished_time = finished_time
+                    task.processing_duration_ms = total_duration_ms
+                    task.stage_durations_json = dict(stage_durations)
+                    task.error_message = error_message
             db.commit()
 
     def _get_document(self, document_id: int) -> Document:
