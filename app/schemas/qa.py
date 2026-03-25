@@ -66,6 +66,14 @@ class DemoChunkItem(BaseModel):
     page_end: int | None = None
     content: str
     score: int | None = None
+    vector_score: float | None = None
+
+
+class DemoVectorItem(BaseModel):
+    label: str
+    chunk_index: int | None = None
+    dimension: int
+    vector_preview: list[float]
 
 
 class DemoStageItem(BaseModel):
@@ -80,6 +88,8 @@ class DemoAskResponse(BaseModel):
     cleaned_text_preview: str
     chunk_count: int
     chunks: list[DemoChunkItem]
+    query_vector: DemoVectorItem
+    chunk_vectors: list[DemoVectorItem]
     retrieved_chunks: list[DemoChunkItem]
     answer: str
     model_name: str

@@ -18,6 +18,7 @@ from app.schemas.qa import (
     DemoAskResponse,
     DemoChunkItem,
     DemoStageItem,
+    DemoVectorItem,
     QAHistoryDetailResponse,
     QAProgressResponse,
 )
@@ -422,6 +423,9 @@ class QAService:
         chunks = split_text_with_metadata(cleaned_text, chunk_size=180, overlap=30)
         tokens = _extract_tokens(rewritten_question)
         generation_profile = _generation_profile(rewritten_question)
+        chunk_texts = [chunk.text for chunk in chunks]
+        query_embedding = self.embedding_provider.embed_query(rewritten_question)
+        chunk_embeddings = self.embedding_provider.embed_documents(chunk_texts) if chunk_texts else []
 
         demo_stages = [
             DemoStageItem(
@@ -444,9 +448,14 @@ class QAService:
                 label="切分 Chunk",
                 detail=f"共切分出 {len(chunks)} 个 chunk，用于后续检索。",
             ),
+            DemoStageItem(
+                stage="embedding",
+                label="向量化",
+                detail=f"问题和 {len(chunk_embeddings)} 个 chunk 已转成 {len(query_embedding)} 维向量，用于语义相似度计算。",
+            ),
         ]
 
-        ranked_chunks = _score_demo_chunks(rewritten_question, tokens, chunks)
+        ranked_chunks = _score_demo_chunks(rewritten_question, tokens, chunks, query_embedding, chunk_embeddings)
         top_ranked = ranked_chunks[: min(4, len(ranked_chunks))]
         demo_stages.append(
             DemoStageItem(
@@ -499,6 +508,21 @@ class QAService:
                 )
                 for index, chunk in enumerate(chunks[:8])
             ],
+            query_vector=DemoVectorItem(
+                label="问题向量",
+                chunk_index=None,
+                dimension=len(query_embedding),
+                vector_preview=_vector_preview(query_embedding, size=8),
+            ),
+            chunk_vectors=[
+                DemoVectorItem(
+                    label=f"Chunk {index} 向量",
+                    chunk_index=index,
+                    dimension=len(vector),
+                    vector_preview=_vector_preview(vector, size=8),
+                )
+                for index, vector in enumerate(chunk_embeddings[:6])
+            ],
             retrieved_chunks=[
                 DemoChunkItem(
                     chunk_index=item["chunk_index"],
@@ -507,6 +531,7 @@ class QAService:
                     page_end=item["chunk"].page_end,
                     content=_preview_text(item["chunk"].text, 220),
                     score=int(item["score"]),
+                    vector_score=round(item["vector_score"], 4),
                 )
                 for item in top_ranked
             ],
@@ -885,6 +910,8 @@ def _score_demo_chunks(
     question: str,
     tokens: list[str],
     chunks: list[TextChunk],
+    query_embedding: list[float],
+    chunk_embeddings: list[list[float]],
 ) -> list[dict]:
     question_tags = set(derive_semantic_tags(question))
     scored: list[dict] = []
@@ -894,7 +921,9 @@ def _score_demo_chunks(
         section_bonus = _score_text(tokens, section_title or "")
         tag_overlap = len(question_tags & set(derive_semantic_tags(chunk.text, section_title)))
         density_bonus = min(4, lexical)
-        score = lexical * 8 + section_bonus * 12 + tag_overlap * 10 + density_bonus
+        chunk_vector = chunk_embeddings[index] if index < len(chunk_embeddings) else []
+        vector_score = _cosine_similarity(query_embedding, chunk_vector)
+        score = lexical * 8 + section_bonus * 12 + tag_overlap * 10 + density_bonus + vector_score * 20
         if score <= 0:
             continue
         scored.append(
@@ -902,9 +931,16 @@ def _score_demo_chunks(
                 "chunk_index": index,
                 "chunk": chunk,
                 "score": score,
+                "vector_score": vector_score,
             }
         )
     return sorted(scored, key=lambda item: (item["score"], -item["chunk_index"]), reverse=True)
+
+
+def _cosine_similarity(left: list[float], right: list[float]) -> float:
+    if not left or not right or len(left) != len(right):
+        return 0.0
+    return max(-1.0, min(1.0, sum(a * b for a, b in zip(left, right))))
 
 
 def _document_focus_summary(grouped: dict[int, list[tuple[DocumentChunk, Document, int, float]]]) -> list[dict]:

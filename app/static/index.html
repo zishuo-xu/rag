@@ -333,6 +333,16 @@
         border: 1px solid rgba(220, 207, 187, 0.85);
       }
 
+      .demo-pulse {
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: rgba(246, 231, 211, 0.7);
+        border: 1px dashed rgba(180, 83, 9, 0.4);
+        color: var(--brand-dark);
+        font-size: 13px;
+        font-weight: 700;
+      }
+
       .panel {
         padding: 22px;
       }
@@ -1286,6 +1296,7 @@
       const historyDetailEl = document.getElementById("historyDetail");
       let documentStatusTimer = null;
       let qaProgressTimer = null;
+      let demoPlaybackTimers = [];
       let progressDebugExpanded = false;
       let activeHistoryRequestId = "";
       let selectedDocumentIds = new Set();
@@ -1387,16 +1398,19 @@
         return escapeHtml(answer).replace(/\[(\d+)\]/g, '<a class="answer-ref" href="#citation-$1">[$1]</a>');
       }
 
-      function renderDemoResult(data) {
+      function stopDemoPlayback() {
+        demoPlaybackTimers.forEach((timerId) => window.clearTimeout(timerId));
+        demoPlaybackTimers = [];
+      }
+
+      function buildDemoPlaybackHtml(data, visiblePhase) {
         const stageHtml = (data.stages || [])
-          .map(
-            (stage) => `
+          .map((stage, index) => `
               <div class="demo-stage-card">
                 <strong>${escapeHtml(stage.label)}</strong>
                 <div style="color: var(--muted); font-size: 13px; line-height: 1.7;">${escapeHtml(stage.detail)}</div>
               </div>
-            `
-          )
+            `)
           .join("");
 
         const chunkHtml = (data.chunks || [])
@@ -1411,18 +1425,37 @@
           )
           .join("");
 
+        const vectorHtml = [
+          `
+            <div class="mini-item">
+              <div style="font-weight:700; margin-bottom:4px;">${escapeHtml(data.query_vector.label)}</div>
+              <div style="color: var(--muted); font-size: 12px;">维度 ${data.query_vector.dimension}</div>
+              <div style="margin-top:6px; font-size:13px; line-height:1.6;">[${(data.query_vector.vector_preview || []).join(", ")}]</div>
+            </div>
+          `,
+          ...(data.chunk_vectors || []).map(
+            (item) => `
+              <div class="mini-item">
+                <div style="font-weight:700; margin-bottom:4px;">${escapeHtml(item.label)}</div>
+                <div style="color: var(--muted); font-size: 12px;">维度 ${item.dimension}</div>
+                <div style="margin-top:6px; font-size:13px; line-height:1.6;">[${(item.vector_preview || []).join(", ")}]</div>
+              </div>
+            `
+          ),
+        ].join("");
+
         const retrievalHtml = (data.retrieved_chunks || [])
           .map(
             (item) => `
               <div class="mini-item">
-                <div style="font-weight:700; margin-bottom:4px;">Top Chunk ${item.chunk_index}${item.score !== null && item.score !== undefined ? ` · 分数 ${item.score}` : ""}</div>
+                <div style="font-weight:700; margin-bottom:4px;">Top Chunk ${item.chunk_index}${item.score !== null && item.score !== undefined ? ` · 分数 ${item.score}` : ""}${item.vector_score !== null && item.vector_score !== undefined ? ` · 向量相似度 ${item.vector_score}` : ""}</div>
                 <div style="font-size:13px; line-height:1.6;">${escapeHtml(item.content)}</div>
               </div>
             `
           )
           .join("");
 
-        demoResultEl.innerHTML = `
+        return `
           <div class="answer-card">
             <div class="doc-name">演示结果</div>
             <div class="doc-meta">
@@ -1432,21 +1465,54 @@
               <span>模式: ${escapeHtml(data.generation_mode || "-")}</span>
               <span>耗时: ${data.elapsed_time_ms} ms</span>
             </div>
-            <div class="answer-meta" style="margin-top: 12px;">清洗后预览：${escapeHtml(data.cleaned_text_preview)}</div>
-            <div class="answer-text">${escapeHtml(data.answer)}</div>
+            <div class="answer-meta" style="margin-top: 12px;">当前演示阶段：${escapeHtml((data.stages?.[visiblePhase - 1] || {}).label || "完成")}</div>
           </div>
           <div class="demo-stage-grid">${stageHtml}</div>
-          <div class="demo-columns">
+          ${visiblePhase >= 1 ? `
             <div class="mini-card">
-              <div class="mini-card-title">切分出的 Chunk（预览）</div>
+              <div class="mini-card-title">清洗后的结果</div>
+              <div class="mini-list">
+                <div class="mini-item">${escapeHtml(data.cleaned_text_preview)}</div>
+              </div>
+            </div>
+          ` : ""}
+          ${visiblePhase >= 2 ? `
+            <div class="mini-card">
+              <div class="mini-card-title">切片后的结果</div>
               <div class="mini-list">${chunkHtml || '<div class="empty">暂无 chunk</div>'}</div>
             </div>
+          ` : ""}
+          ${visiblePhase >= 3 ? `
+            <div class="mini-card">
+              <div class="mini-card-title">向量化结果</div>
+              <div class="mini-list">${vectorHtml}</div>
+            </div>
+          ` : ""}
+          ${visiblePhase >= 4 ? `
             <div class="mini-card">
               <div class="mini-card-title">召回到的证据</div>
               <div class="mini-list">${retrievalHtml || '<div class="empty">暂无召回片段</div>'}</div>
             </div>
-          </div>
+          ` : ""}
+          ${visiblePhase >= 5 ? `
+            <div class="answer-card">
+              <div class="doc-name">最终答案</div>
+              <div class="answer-text">${escapeHtml(data.answer)}</div>
+            </div>
+          ` : ""}
+          ${visiblePhase < 5 ? `<div class="demo-pulse">正在进入下一阶段演示...</div>` : ""}
         `;
+      }
+
+      function playDemoResult(data) {
+        stopDemoPlayback();
+        const totalPhases = 5;
+        for (let index = 1; index <= totalPhases; index += 1) {
+          const timerId = window.setTimeout(() => {
+            demoResultEl.innerHTML = buildDemoPlaybackHtml(data, index);
+          }, (index - 1) * 700);
+          demoPlaybackTimers.push(timerId);
+        }
       }
 
       function renderSummary(value) {
@@ -2009,8 +2075,9 @@
           return;
         }
 
+        stopDemoPlayback();
         runDemoBtn.disabled = true;
-        demoResultEl.innerHTML = '<div class="empty">正在演示一次迷你 RAG 过程...</div>';
+        demoResultEl.innerHTML = '<div class="empty">正在准备演示资料...</div>';
 
         try {
           const response = await fetch("/api/qa/demo", {
@@ -2025,7 +2092,7 @@
           if (!response.ok) {
             throw new Error(data.detail || "演示失败");
           }
-          renderDemoResult(data);
+          playDemoResult(data);
           setMessage("RAG 分享体验区已完成一次演示。", "success");
         } catch (error) {
           demoResultEl.innerHTML = `<div class="empty">${escapeHtml(error.message || "演示失败")}</div>`;
