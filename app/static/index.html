@@ -90,6 +90,165 @@
         gap: 18px;
       }
 
+      .showcase {
+        margin-bottom: 18px;
+      }
+
+      .showcase-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 18px;
+        align-items: end;
+        margin-bottom: 18px;
+      }
+
+      .showcase-title {
+        margin: 0 0 6px;
+        font-size: 24px;
+      }
+
+      .showcase-note {
+        color: var(--muted);
+        font-size: 14px;
+        max-width: 620px;
+      }
+
+      .stack-chips {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .stack-chip {
+        padding: 8px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(220, 207, 187, 0.9);
+        background: rgba(255, 255, 255, 0.82);
+        color: var(--brand-dark);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .showcase-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+      }
+
+      .flow-card {
+        padding: 20px;
+      }
+
+      .flow-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: start;
+        margin-bottom: 16px;
+      }
+
+      .flow-title {
+        margin: 0 0 6px;
+        font-size: 18px;
+      }
+
+      .flow-kpi {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 78px;
+        height: 34px;
+        padding: 0 12px;
+        border-radius: 999px;
+        background: #f6e7d3;
+        color: var(--brand-dark);
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .flow-steps {
+        display: grid;
+        gap: 10px;
+      }
+
+      .flow-step {
+        display: grid;
+        grid-template-columns: 42px 1fr;
+        gap: 12px;
+        align-items: start;
+        padding: 14px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.76);
+      }
+
+      .flow-step.no {
+        background: linear-gradient(180deg, rgba(255,255,255,0.92), rgba(247,242,234,0.92));
+      }
+
+      .flow-index {
+        width: 42px;
+        height: 42px;
+        border-radius: 14px;
+        background: linear-gradient(180deg, #c97316, #a34a07);
+        color: white;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 800;
+        font-size: 14px;
+      }
+
+      .flow-label {
+        font-size: 15px;
+        font-weight: 800;
+        margin-bottom: 4px;
+      }
+
+      .flow-desc {
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.65;
+      }
+
+      .flow-meta {
+        margin-top: 8px;
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .flow-meta span {
+        padding: 5px 8px;
+        border-radius: 999px;
+        background: rgba(246, 231, 211, 0.6);
+        color: var(--brand-dark);
+        font-size: 11px;
+        font-weight: 700;
+      }
+
+      .flow-arrow {
+        display: flex;
+        justify-content: center;
+        margin-top: -2px;
+        margin-bottom: -2px;
+        color: #b45309;
+        font-size: 18px;
+        font-weight: 900;
+      }
+
+      .flow-summary {
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 16px;
+        border: 1px dashed rgba(180, 83, 9, 0.35);
+        background: rgba(246, 231, 211, 0.38);
+        color: #7c4a12;
+        font-size: 13px;
+        line-height: 1.7;
+      }
+
       .panel {
         padding: 22px;
       }
@@ -646,6 +805,7 @@
 
       @media (max-width: 900px) {
         .hero,
+        .showcase-grid,
         .grid,
         .history-grid {
           grid-template-columns: 1fr;
@@ -668,6 +828,15 @@
         .doc-toolbar {
           flex-direction: column;
         }
+
+        .showcase-head {
+          flex-direction: column;
+          align-items: start;
+        }
+
+        .stack-chips {
+          justify-content: flex-start;
+        }
       }
     </style>
   </head>
@@ -678,7 +847,7 @@
           <div class="badge">本地应用 + 云端 PostgreSQL / Redis</div>
           <h1>RAG 文档管理台</h1>
           <p>
-            这是一版最快可操作的前端页面。现在你可以直接上传文档、查看文档列表、删除文档，并检查后端和依赖服务是否正常。
+            这是一版可直接演示的 RAG 知识库界面。现在不仅能上传和问答，也能把“文档如何入库、问题如何变成答案”的全过程直观看出来。
           </p>
         </div>
         <div class="card hero-side">
@@ -701,6 +870,156 @@
           <div class="actions" style="margin-top: 14px">
             <button class="secondary" id="refreshHealthBtn">刷新状态</button>
           </div>
+        </div>
+      </section>
+
+      <section class="showcase">
+        <div class="showcase-head">
+          <div>
+            <h2 class="showcase-title">RAG 过程可视化</h2>
+            <div class="showcase-note">
+              这块适合你做分享时直接讲流程。左边是文档入库链路，右边是问答链路，展示了当前系统如何把原始文档转成可检索、可引用、可回答的知识库。
+            </div>
+          </div>
+          <div class="stack-chips">
+            <span class="stack-chip">FastAPI</span>
+            <span class="stack-chip">Redis Queue</span>
+            <span class="stack-chip">PostgreSQL + pgvector</span>
+            <span class="stack-chip">Fulltext Retrieval</span>
+            <span class="stack-chip">Local Rerank</span>
+            <span class="stack-chip">DeepSeek</span>
+          </div>
+        </div>
+
+        <div class="showcase-grid">
+          <article class="card flow-card">
+            <div class="flow-head">
+              <div>
+                <h3 class="flow-title">文档入库链路</h3>
+                <p class="section-subtitle">把原始文件变成可检索的知识块和向量。</p>
+              </div>
+              <span class="flow-kpi">Offline Indexing</span>
+            </div>
+            <div class="flow-steps">
+              <div class="flow-step no">
+                <div class="flow-index">01</div>
+                <div>
+                  <div class="flow-label">上传原始文档</div>
+                  <div class="flow-desc">支持 `txt / md / pdf / docx`，文件先保存到本地存储，再写入文档元数据。</div>
+                  <div class="flow-meta">
+                    <span>storage/uploads</span>
+                    <span>document</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flow-arrow">↓</div>
+              <div class="flow-step no">
+                <div class="flow-index">02</div>
+                <div>
+                  <div class="flow-label">解析与清洗</div>
+                  <div class="flow-desc">提取正文、识别页码、清掉换行断词和噪声，让后续切分更稳定。</div>
+                  <div class="flow-meta">
+                    <span>file_parser</span>
+                    <span>text_cleaner</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flow-arrow">↓</div>
+              <div class="flow-step no">
+                <div class="flow-index">03</div>
+                <div>
+                  <div class="flow-label">切分 Chunk</div>
+                  <div class="flow-desc">按段落、章节和页范围切成知识块，并保留 `section_title / page_start / page_end`。</div>
+                  <div class="flow-meta">
+                    <span>document_chunk</span>
+                    <span>page range</span>
+                    <span>section title</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flow-arrow">↓</div>
+              <div class="flow-step no">
+                <div class="flow-index">04</div>
+                <div>
+                  <div class="flow-label">生成向量并入库</div>
+                  <div class="flow-desc">把每个 chunk 送到 embedding 模型生成向量，写入 PostgreSQL / pgvector，形成可检索知识索引。</div>
+                  <div class="flow-meta">
+                    <span>Embedding</span>
+                    <span>pgvector</span>
+                    <span>Redis Worker</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="flow-summary">
+              分享时可以把这一侧理解成：“把长文档加工成结构化知识块和向量索引”，后续问答就是在这些 chunk 上做召回和生成。
+            </div>
+          </article>
+
+          <article class="card flow-card">
+            <div class="flow-head">
+              <div>
+                <h3 class="flow-title">问答链路</h3>
+                <p class="section-subtitle">把用户问题转成检索、排序和最终答案。</p>
+              </div>
+              <span class="flow-kpi">Online Retrieval + Generation</span>
+            </div>
+            <div class="flow-steps">
+              <div class="flow-step no">
+                <div class="flow-index">01</div>
+                <div>
+                  <div class="flow-label">理解并改写问题</div>
+                  <div class="flow-desc">先做 Query Rewrite，把口语化问题改成更适合检索的表达。</div>
+                  <div class="flow-meta">
+                    <span>query rewrite</span>
+                    <span>question profiling</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flow-arrow">↓</div>
+              <div class="flow-step no">
+                <div class="flow-index">02</div>
+                <div>
+                  <div class="flow-label">混合召回候选片段</div>
+                  <div class="flow-desc">同时做向量检索、PostgreSQL 全文检索和关键词补充，合并出候选证据。</div>
+                  <div class="flow-meta">
+                    <span>pgvector</span>
+                    <span>fulltext</span>
+                    <span>keyword</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flow-arrow">↓</div>
+              <div class="flow-step no">
+                <div class="flow-index">03</div>
+                <div>
+                  <div class="flow-label">Rerank 与去重</div>
+                  <div class="flow-desc">利用本地 rerank 和结构化字段，把最相关的章节排到前面，并合并重复证据。</div>
+                  <div class="flow-meta">
+                    <span>local rerank</span>
+                    <span>section title</span>
+                    <span>semantic tags</span>
+                  </div>
+                </div>
+              </div>
+              <div class="flow-arrow">↓</div>
+              <div class="flow-step no">
+                <div class="flow-index">04</div>
+                <div>
+                  <div class="flow-label">LLM 生成答案并返回引用</div>
+                  <div class="flow-desc">把精排后的 top chunks 交给 LLM 组织回答，同时返回引用编号和来源片段。</div>
+                  <div class="flow-meta">
+                    <span>DeepSeek</span>
+                    <span>citation</span>
+                    <span>traceable answer</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="flow-summary">
+              分享时可以把这一侧理解成：“先找证据，再让模型基于证据说话”，这样能降低幻觉并让答案可追溯。
+            </div>
+          </article>
         </div>
       </section>
 
@@ -823,13 +1142,13 @@
       let documentSearchKeyword = "";
       let documentStatusFilterValue = "ALL";
       const qaStages = [
-        { key: "received", label: "接收问题" },
-        { key: "embedding", label: "生成问题向量" },
-        { key: "retrieving", label: "检索相关片段" },
-        { key: "reranking", label: "重排候选结果" },
-        { key: "generating", label: "生成最终答案" },
+        { key: "received", label: "接收与改写问题" },
+        { key: "embedding", label: "问题向量化" },
+        { key: "retrieving", label: "混合召回候选 Chunk" },
+        { key: "reranking", label: "Rerank 精排证据" },
+        { key: "generating", label: "LLM 生成答案" },
         { key: "persisting", label: "写入问答记录" },
-        { key: "completed", label: "返回最终结果" },
+        { key: "completed", label: "返回答案与引用" },
       ];
 
       function setMessage(text, type = "info") {
