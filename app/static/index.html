@@ -291,16 +291,82 @@
         gap: 10px;
       }
 
+      .demo-timeline {
+        display: grid;
+        grid-template-columns: repeat(5, 1fr);
+        gap: 10px;
+      }
+
+      .demo-timeline-item {
+        padding: 12px 10px;
+        border-radius: 14px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.76);
+        text-align: center;
+        transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease, opacity 0.2s ease;
+        opacity: 0.6;
+      }
+
+      .demo-timeline-item.active {
+        opacity: 1;
+        border-color: #d97706;
+        background: rgba(246, 231, 211, 0.92);
+        transform: translateY(-2px);
+      }
+
+      .demo-timeline-item.done {
+        opacity: 0.85;
+      }
+
+      .demo-timeline-index {
+        width: 30px;
+        height: 30px;
+        margin: 0 auto 8px;
+        border-radius: 999px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: #eadfce;
+        color: var(--brand-dark);
+        font-weight: 800;
+        font-size: 12px;
+      }
+
+      .demo-timeline-item.active .demo-timeline-index,
+      .demo-timeline-item.done .demo-timeline-index {
+        background: #b45309;
+        color: white;
+      }
+
+      .demo-timeline-label {
+        font-size: 12px;
+        font-weight: 700;
+        line-height: 1.4;
+      }
+
       .demo-stage-card {
         padding: 14px;
         border-radius: 16px;
         border: 1px solid var(--line);
         background: rgba(255, 255, 255, 0.82);
+        transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, opacity 0.2s ease;
+        opacity: 0.72;
       }
 
       .demo-stage-card strong {
         display: block;
         margin-bottom: 6px;
+      }
+
+      .demo-stage-card.active {
+        opacity: 1;
+        border-color: #d97706;
+        background: rgba(246, 231, 211, 0.9);
+        transform: translateY(-2px);
+      }
+
+      .demo-stage-card.done {
+        opacity: 0.92;
       }
 
       .demo-columns {
@@ -937,6 +1003,10 @@
         .stack-chips {
           justify-content: flex-start;
         }
+
+        .demo-timeline {
+          grid-template-columns: 1fr;
+        }
       }
     </style>
   </head>
@@ -1404,13 +1474,36 @@
       }
 
       function buildDemoPlaybackHtml(data, visiblePhase) {
+        const playbackSteps = [
+          "清洗文本",
+          "切分 Chunk",
+          "向量化",
+          "召回证据",
+          "生成答案",
+        ];
+        const timelineHtml = playbackSteps
+          .map((label, index) => {
+            const phase = index + 1;
+            const stateClass = visiblePhase === phase ? "active" : visiblePhase > phase ? "done" : "";
+            return `
+              <div class="demo-timeline-item ${stateClass}">
+                <div class="demo-timeline-index">${String(phase).padStart(2, "0")}</div>
+                <div class="demo-timeline-label">${escapeHtml(label)}</div>
+              </div>
+            `;
+          })
+          .join("");
+
         const stageHtml = (data.stages || [])
-          .map((stage, index) => `
-              <div class="demo-stage-card">
+          .map((stage, index) => {
+            const stateClass = visiblePhase === index ? "active" : visiblePhase > index ? "done" : "";
+            return `
+              <div class="demo-stage-card ${stateClass}">
                 <strong>${escapeHtml(stage.label)}</strong>
                 <div style="color: var(--muted); font-size: 13px; line-height: 1.7;">${escapeHtml(stage.detail)}</div>
               </div>
-            `)
+            `;
+          })
           .join("");
 
         const chunkHtml = (data.chunks || [])
@@ -1467,6 +1560,7 @@
             </div>
             <div class="answer-meta" style="margin-top: 12px;">当前演示阶段：${escapeHtml((data.stages?.[visiblePhase - 1] || {}).label || "完成")}</div>
           </div>
+          <div class="demo-timeline">${timelineHtml}</div>
           <div class="demo-stage-grid">${stageHtml}</div>
           ${visiblePhase >= 1 ? `
             <div class="mini-card">
