@@ -20,6 +20,11 @@ class AskRequest(BaseModel):
     request_id: str | None = None
 
 
+class DemoAskRequest(BaseModel):
+    context_text: str = Field(min_length=1, max_length=10000)
+    question: str = Field(min_length=1, max_length=1000)
+
+
 class CitationItem(BaseModel):
     citation_id: int
     document_id: int
@@ -52,6 +57,35 @@ class QAProgressResponse(BaseModel):
     error_message: str | None = None
     updated_at: datetime | None = None
     steps: list[dict] = Field(default_factory=list)
+
+
+class DemoChunkItem(BaseModel):
+    chunk_index: int
+    section_title: str | None = None
+    page_start: int | None = None
+    page_end: int | None = None
+    content: str
+    score: int | None = None
+
+
+class DemoStageItem(BaseModel):
+    stage: str
+    label: str
+    detail: str
+
+
+class DemoAskResponse(BaseModel):
+    question: str
+    rewritten_question: str
+    cleaned_text_preview: str
+    chunk_count: int
+    chunks: list[DemoChunkItem]
+    retrieved_chunks: list[DemoChunkItem]
+    answer: str
+    model_name: str
+    generation_mode: str | None = None
+    elapsed_time_ms: int
+    stages: list[DemoStageItem]
 
 
 class QAHistoryDetailResponse(BaseModel):

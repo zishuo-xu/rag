@@ -4,7 +4,15 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.qa import AskRequest, AskResponse, QAHistoryDetailResponse, QAHistoryItem, QAProgressResponse
+from app.schemas.qa import (
+    AskRequest,
+    AskResponse,
+    DemoAskRequest,
+    DemoAskResponse,
+    QAHistoryDetailResponse,
+    QAHistoryItem,
+    QAProgressResponse,
+)
 from app.services.qa_service import QAService
 from app.services.redis_service import set_qa_progress
 
@@ -35,6 +43,11 @@ def ask_question(request: AskRequest, db: Session = Depends(get_db)) -> AskRespo
         output_summary={"request_id": request_id},
     )
     return QAService(db).ask(request.question, request.document_ids, request_id)
+
+
+@router.post("/demo", response_model=DemoAskResponse)
+def run_demo_rag(request: DemoAskRequest, db: Session = Depends(get_db)) -> DemoAskResponse:
+    return QAService(db).run_demo_experience(request.context_text, request.question)
 
 
 @router.get("/progress/{request_id}", response_model=QAProgressResponse)

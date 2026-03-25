@@ -249,6 +249,90 @@
         line-height: 1.7;
       }
 
+      .demo-entry {
+        margin-bottom: 18px;
+      }
+
+      .demo-grid {
+        display: grid;
+        grid-template-columns: 0.95fr 1.05fr;
+        gap: 18px;
+        margin-top: 18px;
+      }
+
+      .demo-panel {
+        padding: 22px;
+      }
+
+      textarea.demo-textarea,
+      input.demo-input {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: white;
+        color: var(--ink);
+        padding: 14px 16px;
+        font: inherit;
+        line-height: 1.65;
+      }
+
+      textarea.demo-textarea {
+        min-height: 180px;
+        resize: vertical;
+      }
+
+      .demo-result {
+        display: grid;
+        gap: 14px;
+      }
+
+      .demo-stage-grid {
+        display: grid;
+        gap: 10px;
+      }
+
+      .demo-stage-card {
+        padding: 14px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.82);
+      }
+
+      .demo-stage-card strong {
+        display: block;
+        margin-bottom: 6px;
+      }
+
+      .demo-columns {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+      }
+
+      .mini-card {
+        padding: 14px;
+        border-radius: 16px;
+        border: 1px solid var(--line);
+        background: rgba(255, 255, 255, 0.82);
+      }
+
+      .mini-card-title {
+        font-weight: 800;
+        margin-bottom: 8px;
+      }
+
+      .mini-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .mini-item {
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(247, 242, 234, 0.92);
+        border: 1px solid rgba(220, 207, 187, 0.85);
+      }
+
       .panel {
         padding: 22px;
       }
@@ -281,6 +365,10 @@
         display: flex;
         gap: 10px;
         flex-wrap: wrap;
+      }
+
+      .hero-actions {
+        margin-top: 18px;
       }
 
       button {
@@ -806,6 +894,8 @@
       @media (max-width: 900px) {
         .hero,
         .showcase-grid,
+        .demo-grid,
+        .demo-columns,
         .grid,
         .history-grid {
           grid-template-columns: 1fr;
@@ -849,6 +939,10 @@
           <p>
             这是一版可直接演示的 RAG 知识库界面。现在不仅能上传和问答，也能把“文档如何入库、问题如何变成答案”的全过程直观看出来。
           </p>
+          <div class="actions hero-actions">
+            <a href="#ragDemoZone"><button class="primary" type="button">进入 RAG 分享体验区</button></a>
+            <a href="#ragProcessZone"><button class="secondary" type="button">查看 RAG 过程图</button></a>
+          </div>
         </div>
         <div class="card hero-side">
           <h2 class="section-title">服务状态</h2>
@@ -873,7 +967,7 @@
         </div>
       </section>
 
-      <section class="showcase">
+      <section id="ragProcessZone" class="showcase">
         <div class="showcase-head">
           <div>
             <h2 class="showcase-title">RAG 过程可视化</h2>
@@ -1023,6 +1117,58 @@
         </div>
       </section>
 
+      <section id="ragDemoZone" class="demo-entry">
+        <div class="showcase-head">
+          <div>
+            <h2 class="showcase-title">RAG 分享体验区</h2>
+            <div class="showcase-note">
+              不用上传文件，直接输入一段资料和一个问题，就能现场演示一次“清洗、切分、召回、生成”的迷你 RAG 过程。适合做分享时快速展示原理。
+            </div>
+          </div>
+          <div class="stack-chips">
+            <span class="stack-chip">No Upload</span>
+            <span class="stack-chip">No Persistence</span>
+            <span class="stack-chip">Instant Demo</span>
+          </div>
+        </div>
+
+        <div class="demo-grid">
+          <div class="card demo-panel">
+            <div class="field">
+              <label for="demoContextInput">演示资料</label>
+              <textarea
+                id="demoContextInput"
+                class="demo-textarea"
+                placeholder="这里输入一段短资料，例如公司介绍、政策摘要或产品说明。"
+              >蔚来正在推进智能驾驶与换电协同路线，核心能力包括自研感知硬件、中央计算平台、软件算法栈和数据闭环。公司同时在欧洲市场持续拓展，强调技术平台、服务网络和用户运营的一体化建设。</textarea>
+            </div>
+            <div class="field">
+              <label for="demoQuestionInput">演示问题</label>
+              <input
+                id="demoQuestionInput"
+                class="demo-input"
+                type="text"
+                value="这段资料体现了蔚来哪些核心能力和布局方向？"
+                placeholder="输入一个问题"
+              />
+            </div>
+            <div class="actions">
+              <button class="primary" id="runDemoBtn">体验 RAG 过程</button>
+              <button class="secondary" id="fillDemoSampleBtn">填充示例</button>
+            </div>
+            <div class="footer-note">
+              这条演示链路不会写入文档库，也不会进入正式问答历史，只用于现场讲解 RAG。
+            </div>
+          </div>
+
+          <div class="card demo-panel">
+            <div id="demoResult" class="demo-result">
+              <div class="empty">输入资料和问题后，这里会展示一次迷你 RAG 过程。</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section class="grid">
         <div class="card panel">
           <h2 class="section-title">上传文档</h2>
@@ -1126,11 +1272,16 @@
       const workerStatusEl = document.getElementById("workerStatus");
       const questionInput = document.getElementById("questionInput");
       const askBtn = document.getElementById("askBtn");
+      const demoContextInput = document.getElementById("demoContextInput");
+      const demoQuestionInput = document.getElementById("demoQuestionInput");
+      const runDemoBtn = document.getElementById("runDemoBtn");
+      const fillDemoSampleBtn = document.getElementById("fillDemoSampleBtn");
       const selectAllDocsBtn = document.getElementById("selectAllDocsBtn");
       const clearDocSelectionBtn = document.getElementById("clearDocSelectionBtn");
       const scopeLabelEl = document.getElementById("scopeLabel");
       const refreshHistoryBtn = document.getElementById("refreshHistoryBtn");
       const qaResultEl = document.getElementById("qaResult");
+      const demoResultEl = document.getElementById("demoResult");
       const historyListEl = document.getElementById("historyList");
       const historyDetailEl = document.getElementById("historyDetail");
       let documentStatusTimer = null;
@@ -1234,6 +1385,68 @@
 
       function renderAnswerWithRefs(answer) {
         return escapeHtml(answer).replace(/\[(\d+)\]/g, '<a class="answer-ref" href="#citation-$1">[$1]</a>');
+      }
+
+      function renderDemoResult(data) {
+        const stageHtml = (data.stages || [])
+          .map(
+            (stage) => `
+              <div class="demo-stage-card">
+                <strong>${escapeHtml(stage.label)}</strong>
+                <div style="color: var(--muted); font-size: 13px; line-height: 1.7;">${escapeHtml(stage.detail)}</div>
+              </div>
+            `
+          )
+          .join("");
+
+        const chunkHtml = (data.chunks || [])
+          .map(
+            (item) => `
+              <div class="mini-item">
+                <div style="font-weight:700; margin-bottom:4px;">Chunk ${item.chunk_index}${item.section_title ? ` · ${escapeHtml(item.section_title)}` : ""}</div>
+                <div style="color: var(--muted); font-size: 12px;">${item.page_start ? `页码 ${item.page_start}${item.page_end && item.page_end !== item.page_start ? `-${item.page_end}` : ""}` : "未标注页码"}</div>
+                <div style="margin-top:6px; font-size:13px; line-height:1.6;">${escapeHtml(item.content)}</div>
+              </div>
+            `
+          )
+          .join("");
+
+        const retrievalHtml = (data.retrieved_chunks || [])
+          .map(
+            (item) => `
+              <div class="mini-item">
+                <div style="font-weight:700; margin-bottom:4px;">Top Chunk ${item.chunk_index}${item.score !== null && item.score !== undefined ? ` · 分数 ${item.score}` : ""}</div>
+                <div style="font-size:13px; line-height:1.6;">${escapeHtml(item.content)}</div>
+              </div>
+            `
+          )
+          .join("");
+
+        demoResultEl.innerHTML = `
+          <div class="answer-card">
+            <div class="doc-name">演示结果</div>
+            <div class="doc-meta">
+              <span>改写后问题：${escapeHtml(data.rewritten_question)}</span>
+              <span>Chunk 数: ${data.chunk_count}</span>
+              <span>模型: ${escapeHtml(data.model_name)}</span>
+              <span>模式: ${escapeHtml(data.generation_mode || "-")}</span>
+              <span>耗时: ${data.elapsed_time_ms} ms</span>
+            </div>
+            <div class="answer-meta" style="margin-top: 12px;">清洗后预览：${escapeHtml(data.cleaned_text_preview)}</div>
+            <div class="answer-text">${escapeHtml(data.answer)}</div>
+          </div>
+          <div class="demo-stage-grid">${stageHtml}</div>
+          <div class="demo-columns">
+            <div class="mini-card">
+              <div class="mini-card-title">切分出的 Chunk（预览）</div>
+              <div class="mini-list">${chunkHtml || '<div class="empty">暂无 chunk</div>'}</div>
+            </div>
+            <div class="mini-card">
+              <div class="mini-card-title">召回到的证据</div>
+              <div class="mini-list">${retrievalHtml || '<div class="empty">暂无召回片段</div>'}</div>
+            </div>
+          </div>
+        `;
       }
 
       function renderSummary(value) {
@@ -1788,6 +2001,46 @@
         }
       }
 
+      async function runDemoExperience() {
+        const contextText = demoContextInput.value.trim();
+        const question = demoQuestionInput.value.trim();
+        if (!contextText || !question) {
+          setMessage("请先填写演示资料和问题。", "error");
+          return;
+        }
+
+        runDemoBtn.disabled = true;
+        demoResultEl.innerHTML = '<div class="empty">正在演示一次迷你 RAG 过程...</div>';
+
+        try {
+          const response = await fetch("/api/qa/demo", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              context_text: contextText,
+              question,
+            }),
+          });
+          const data = await response.json();
+          if (!response.ok) {
+            throw new Error(data.detail || "演示失败");
+          }
+          renderDemoResult(data);
+          setMessage("RAG 分享体验区已完成一次演示。", "success");
+        } catch (error) {
+          demoResultEl.innerHTML = `<div class="empty">${escapeHtml(error.message || "演示失败")}</div>`;
+          setMessage(error.message || "演示失败", "error");
+        } finally {
+          runDemoBtn.disabled = false;
+        }
+      }
+
+      function fillDemoSample() {
+        demoContextInput.value =
+          "蔚来正在推进智能驾驶与换电协同路线，核心能力包括自研感知硬件、中央计算平台、软件算法栈和数据闭环。公司同时在欧洲市场持续拓展，强调技术平台、服务网络和用户运营的一体化建设。";
+        demoQuestionInput.value = "这段资料体现了蔚来哪些核心能力和布局方向？";
+      }
+
       async function reprocessDocument(id) {
         try {
           setMessage(`正在重新处理文档 ${id}...`, "info");
@@ -1831,6 +2084,8 @@
       });
       refreshHistoryBtn.addEventListener("click", loadHistory);
       askBtn.addEventListener("click", askQuestion);
+      runDemoBtn.addEventListener("click", runDemoExperience);
+      fillDemoSampleBtn.addEventListener("click", fillDemoSample);
 
       loadHealth();
       loadDocuments();

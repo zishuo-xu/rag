@@ -75,6 +75,7 @@
 前端侧：
 - 首页直接可操作
 - 首页提供可用于分享的 RAG 过程可视化流程区
+- 首页提供“RAG 分享体验区”，可直接输入短资料和问题演示一次迷你 RAG 过程
 - 实时进度展示
 - 调试视图
 - 问答历史与单次回放
@@ -143,6 +144,7 @@ PERSIST_BATCH_SIZE=200
 - `POST /api/documents/{id}/reprocess`
 - `DELETE /api/documents/{id}`
 - `POST /api/qa/ask`
+- `POST /api/qa/demo`
 - `GET /api/qa/history`
 - `GET /api/qa/history/{request_id}`
 - `GET /api/qa/progress/{request_id}`

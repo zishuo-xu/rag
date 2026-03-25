@@ -12,12 +12,22 @@ from app.db.models.document_chunk import DocumentChunk, EMBEDDING_DIMENSION
 from app.db.repositories.qa_repository import QARepository
 from app.providers.embedding.provider import EmbeddingProvider
 from app.providers.llm.openai_provider import OpenAILLMProvider
-from app.schemas.qa import AskResponse, CitationItem, QAHistoryDetailResponse, QAProgressResponse
+from app.schemas.qa import (
+    AskResponse,
+    CitationItem,
+    DemoAskResponse,
+    DemoChunkItem,
+    DemoStageItem,
+    QAHistoryDetailResponse,
+    QAProgressResponse,
+)
 from app.services.query_rewrite_service import QueryRewriteService
 from app.services.redis_service import get_qa_progress, set_qa_progress
 from app.services.retrieval_postprocessor import ProcessedHit, RetrievalPostprocessor
 from app.services.rerank_service import RerankService
 from app.utils.semantic_tags import derive_semantic_tags
+from app.utils.text_cleaner import clean_text
+from app.utils.text_splitter import TextChunk, split_text_with_metadata
 
 
 class QAService:
@@ -402,6 +412,111 @@ class QAService:
             )
             raise
 
+    def run_demo_experience(self, context_text: str, question: str) -> DemoAskResponse:
+        started_at = time.perf_counter()
+        normalized_question = question.strip()
+        normalized_context = context_text.strip()
+        rewrite_result = self.query_rewrite_service.rewrite(normalized_question)
+        rewritten_question = rewrite_result.rewritten_question
+        cleaned_text = clean_text(normalized_context)
+        chunks = split_text_with_metadata(cleaned_text, chunk_size=180, overlap=30)
+        tokens = _extract_tokens(rewritten_question)
+        generation_profile = _generation_profile(rewritten_question)
+
+        demo_stages = [
+            DemoStageItem(
+                stage="input",
+                label="输入原始资料",
+                detail=f"收到 {len(normalized_context)} 个字符的原始资料和一个问题。",
+            ),
+            DemoStageItem(
+                stage="cleaning",
+                label="清洗文本",
+                detail=f"清洗后保留 {len(cleaned_text)} 个字符，去掉链接、噪声和多余换行。",
+            ),
+            DemoStageItem(
+                stage="rewrite",
+                label="改写问题",
+                detail=f"问题被规范成：{rewritten_question}",
+            ),
+            DemoStageItem(
+                stage="splitting",
+                label="切分 Chunk",
+                detail=f"共切分出 {len(chunks)} 个 chunk，用于后续检索。",
+            ),
+        ]
+
+        ranked_chunks = _score_demo_chunks(rewritten_question, tokens, chunks)
+        top_ranked = ranked_chunks[: min(4, len(ranked_chunks))]
+        demo_stages.append(
+            DemoStageItem(
+                stage="retrieval",
+                label="召回相关 Chunk",
+                detail=f"从 {len(chunks)} 个 chunk 中选出 {len(top_ranked)} 个最相关片段。",
+            )
+        )
+
+        citations = [
+            CitationItem(
+                citation_id=index + 1,
+                document_id=0,
+                file_name="分享体验输入",
+                chunk_index=item["chunk_index"],
+                chunk_span=None,
+                section_title=item["chunk"].section_title,
+                content=item["chunk"].text[:260],
+                score=int(item["score"]),
+            )
+            for index, item in enumerate(top_ranked)
+        ]
+
+        answer, model_name, _, _, llm_provider_status, _ = self._generate_answer(
+            rewritten_question,
+            citations,
+            generation_profile,
+        )
+        demo_stages.append(
+            DemoStageItem(
+                stage="generation",
+                label="生成答案",
+                detail=f"基于 top {len(citations)} 条证据生成最终回答，当前模式：{_generation_mode(model_name, llm_provider_status)}。",
+            )
+        )
+
+        elapsed_time_ms = int((time.perf_counter() - started_at) * 1000)
+        return DemoAskResponse(
+            question=normalized_question,
+            rewritten_question=rewritten_question,
+            cleaned_text_preview=_preview_text(cleaned_text, 320),
+            chunk_count=len(chunks),
+            chunks=[
+                DemoChunkItem(
+                    chunk_index=index,
+                    section_title=chunk.section_title,
+                    page_start=chunk.page_start,
+                    page_end=chunk.page_end,
+                    content=_preview_text(chunk.text, 180),
+                )
+                for index, chunk in enumerate(chunks[:8])
+            ],
+            retrieved_chunks=[
+                DemoChunkItem(
+                    chunk_index=item["chunk_index"],
+                    section_title=item["chunk"].section_title,
+                    page_start=item["chunk"].page_start,
+                    page_end=item["chunk"].page_end,
+                    content=_preview_text(item["chunk"].text, 220),
+                    score=int(item["score"]),
+                )
+                for item in top_ranked
+            ],
+            answer=answer,
+            model_name=model_name,
+            generation_mode=_generation_mode(model_name, llm_provider_status),
+            elapsed_time_ms=elapsed_time_ms,
+            stages=demo_stages,
+        )
+
     @staticmethod
     def get_progress(request_id: str) -> QAProgressResponse:
         payload = get_qa_progress(request_id)
@@ -764,6 +879,32 @@ def _focus_candidates_by_document(
         for document_id, score in document_scores
     ]
     return focused, summary
+
+
+def _score_demo_chunks(
+    question: str,
+    tokens: list[str],
+    chunks: list[TextChunk],
+) -> list[dict]:
+    question_tags = set(derive_semantic_tags(question))
+    scored: list[dict] = []
+    for index, chunk in enumerate(chunks):
+        section_title = _normalize_section_title(chunk.section_title)
+        lexical = _score_text(tokens, chunk.text)
+        section_bonus = _score_text(tokens, section_title or "")
+        tag_overlap = len(question_tags & set(derive_semantic_tags(chunk.text, section_title)))
+        density_bonus = min(4, lexical)
+        score = lexical * 8 + section_bonus * 12 + tag_overlap * 10 + density_bonus
+        if score <= 0:
+            continue
+        scored.append(
+            {
+                "chunk_index": index,
+                "chunk": chunk,
+                "score": score,
+            }
+        )
+    return sorted(scored, key=lambda item: (item["score"], -item["chunk_index"]), reverse=True)
 
 
 def _document_focus_summary(grouped: dict[int, list[tuple[DocumentChunk, Document, int, float]]]) -> list[dict]:
